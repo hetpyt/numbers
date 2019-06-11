@@ -8,10 +8,14 @@ class Numbers:
     _PyMajorVersion = 3
     # максимальное число девятьсот девяность девять миллиардов ...
     _max_number = 999999999999.99999
+    # род (мужской, женский, средний)
     _gender = "masculine", "feminine", "neuter"
+    # представление нуля
+    _zero = "ноль"
+    # словарь представлений цифр, разделенных на классы в зависимости от позиции цифры в числе
     _number_class = {
         1 : {
-            0 : ("ноль", "ноль", "ноль"),
+            0 : ("", "", ""),
             1 : ("один", "одна", "одно"),
             2 : ("два", "две", "два"),
             3 : ("три", "три", "три"),
@@ -91,9 +95,12 @@ class Numbers:
             gender = self._genders.index(gender)
         # разобьем число на целую и дробную части
         int_part, fract_part = tuple(format(number).split("."))
-        
+        # список результата
         result = []
         pos = len(int_part)
+        if pos == 1 and int(int_part) == 0:
+            # частный случай нуля
+            return [self._zero]
         # признак начала последовательности из 1 и [0,9] начиная в позиции десяток
         # те для обработки чисел 11, 12 и тд до 19, тк тут два цифры идут одним словом
         is_11 = False
@@ -121,13 +128,14 @@ class Numbers:
                     int_suffix = self._integer_suffix[pos][2]
             # определим представление        
             if is_11:
+                # была единица на классе 2 в предыдущей итерации
                 str_digit = self._number_class[2][1][digit]
                 if pos in self._integer_suffix:
                     int_suffix = self._integer_suffix[pos][2]
                 is_11 = False
             else:
                 if digit == 1 and num_class == 2:
-                    # частный случай для десяток (11, 12 и тд)
+                    # частный случай для десяток (10, 11, 12 и тд)
                     # выставляем признак и будем обрабатывать в следующей итерации
                     is_11 = True
                 else:
