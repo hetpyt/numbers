@@ -114,4 +114,4 @@ dmypy.json
 .pyre/
 
 # my
-.cmd
+*.cmd
