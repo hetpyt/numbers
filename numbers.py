@@ -104,24 +104,27 @@ class Numbers:
             str_digit = ""
             # инкремент позиции. для случая с 11, 12 и тд равно 2 в остальных случаях 1
             pos_inc = 1
-            
-            if digit == 1 and num_class == 2:
-                # частный случай для десяток (11, 12 и тд)
-                # выставляем признак и будем обрабатывать в следующей итерации
-                is_11 = True
-            else:
-                if num_class == 1:
-                    # здесь требуется уточнение рода (мужской, женский, средний)
-                    gen = 0 # по умолчанию мужской
-                    if pos == 4:
-                        # для тысяч женский
-                        gen = 1
-                    elif pos == 1:
-                        # род первого разряда задается в параметре функции
-                        gen = gender
-                    str_digit = self._number_class[num_class][digit][gen]
+            if is_11:
+                str_digit = self._number_class[2][1][digit]
+                is_11 = False
+            else
+                if digit == 1 and num_class == 2:
+                    # частный случай для десяток (11, 12 и тд)
+                    # выставляем признак и будем обрабатывать в следующей итерации
+                    is_11 = True
                 else:
-                    str_digit = self._number_class[num_class][digit]
+                    if num_class == 1:
+                        # здесь требуется уточнение рода (мужской, женский, средний)
+                        gen = 0 # по умолчанию мужской
+                        if pos == 4:
+                            # для тысяч женский
+                            gen = 1
+                        elif pos == 1:
+                            # род первого разряда задается в параметре функции
+                            gen = gender
+                        str_digit = self._number_class[num_class][digit][gen]
+                    else:
+                        str_digit = self._number_class[num_class][digit]
             # добавляем текстовое представление разряда в список результата        
             result.append(str_digit) 
             
@@ -133,3 +136,5 @@ class Numbers:
                     result += self._integer_suffix[pos][1] + " "
             # инкремент счетчика разрядов
             pos += pos_inc
+        # возврат результата
+        return result
