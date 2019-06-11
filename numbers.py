@@ -140,11 +140,10 @@ class Numbers:
             # добавляем текстовое представление разряда в список результата 
             if str_digit:
                 result.append(str_digit) 
-            
             # добавим суффикс для 10, 7, 4 разрядов
             if int_suffix:
                 result.append(int_suffix) 
-            # инкремент счетчика разрядов
+            # декремент счетчика разрядов
             pos -= 1
         # возврат результата
         return result 
