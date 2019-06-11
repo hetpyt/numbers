@@ -9,7 +9,7 @@ Num = Numbers()
 # цикл из десяти случайных чисел размером от 0 до _max_number
 for i in range(10):
     # генерация случайного числа
-    n = random.randint(0, math.floor(Num._max_number))
+    n = round(random.randint(0, math.floor(Num._max_number)) / random.randint(1, 9), 5)
     # печать числа цифрами
     print(n)
     # печать числа прописью

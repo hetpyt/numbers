@@ -62,11 +62,12 @@ class Numbers:
             9 : "девятьсот"
         }
     }
-    _integer_suffix = {
+    _10multiple_suffix = {
         4 : ("тысяча", "тысячи","тысяч"),
         7 : ("миллион", "миллиона", "миллионов"),
         10 : ("миллиард", "миллиарда", "миллиардов")
     }
+    _beforedot_suffix = ("целая", "целые", "целых")
     _fractional_suffix = {
         1 : ("десятая", "десятые", "десятых"),
         2 : ("сотая", "сотые", "сотых"),
@@ -84,54 +85,39 @@ class Numbers:
             return isinstance(value, str)
         else:
             return isinstance(value, basestring)
-            
-    def convert(self, number, gender = "masculine"):
-        number = round(float(number), 5)
-        # проверка на размерность числа
-        if number > self._max_number:
-            return None
-        # проверим вдруг в качестве рода передали строковое представление рода
-        if self._is_string(gender):
-            gender = self._genders.index(gender)
-        # разобьем число на целую и дробную части
-        int_part, fract_part = tuple(format(number).split("."))
-        # список результата
-        result = []
-        pos = len(int_part)
-        if pos == 1 and int(int_part) == 0:
+     
+    def _convert(self, result, num_part, gender = 0):
+        # счетчик позиции (разряда) цифры в числе начиная с 1 от десятичной точки справа налево
+        pos = len(num_part)
+        if pos == 1 and int(num_part) == 0:
             # частный случай нуля
-            return [self._zero]
+            result.append(self._zero)
+            return result
         # признак начала последовательности из 1 и [0,9] начиная в позиции десяток
         # те для обработки чисел 11, 12 и тд до 19, тк тут два цифры идут одним словом
         is_11 = False
         while pos > 0:
             # число - цифра текущего разряда
-            digit = int(int_part[len(int_part) - pos])
-            # проверка нуля
-#            if digit == 0 and len(int_part) > 1:
-#                # пропускаем нули, если число не 0
-#                pos -= 1
-#                continue
-                
+            digit = int(num_part[len(num_part) - pos])
             # класс разряда - сотни, десятки, единицы (в тч тысяч, миллионов и тд)
             num_class = pos % 3
             # текстовое представление текущего разряда
             str_digit = ""
             int_suffix = ""
             # определим суффикс
-            if pos in self._integer_suffix:
+            if pos in self._10multiple_suffix:
                 if digit == 1 and not is_11:
-                    int_suffix = self._integer_suffix[pos][0]
+                    int_suffix = self._10multiple_suffix[pos][0]
                 elif digit > 1 and digit < 5 and not is_11:
-                    int_suffix = self._integer_suffix[pos][1]
+                    int_suffix = self._10multiple_suffix[pos][1]
                 else:
-                    int_suffix = self._integer_suffix[pos][2]
+                    int_suffix = self._10multiple_suffix[pos][2]
             # определим представление        
             if is_11:
                 # была единица на классе 2 в предыдущей итерации
                 str_digit = self._number_class[2][1][digit]
-                if pos in self._integer_suffix:
-                    int_suffix = self._integer_suffix[pos][2]
+                if pos in self._10multiple_suffix:
+                    int_suffix = self._10multiple_suffix[pos][2]
                 is_11 = False
             else:
                 if digit == 1 and num_class == 2:
@@ -160,5 +146,25 @@ class Numbers:
                 result.append(int_suffix) 
             # инкремент счетчика разрядов
             pos -= 1
+        # возврат результата
+        return result 
+        
+    def convert(self, number, gender = "masculine"):
+        # преобразуем к числу с плавающей точкой и округляем до 5 знаков после запятой
+        number = round(float(number), 5)
+        # проверка на размерность числа
+        if number > self._max_number:
+            return None
+        # проверим вдруг в качестве рода передали строковое представление рода
+        if self._is_string(gender):
+            gender = self._genders.index(gender)
+        # разобьем число на целую и дробную части
+        int_part, fract_part = tuple(format(number).split("."))
+        # список результата
+        result = []
+        self._convert(result, int_part, gender)
+        #TODO пока что
+        result.append("точка")
+        self._convert(result, fract_part, gender)
         # возврат результата
         return result
