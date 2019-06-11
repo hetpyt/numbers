@@ -11,7 +11,7 @@ class Numbers:
     _gender = "masculine", "feminine", "neuter"
     _number_class = {
         1 : {
-            0 : ("ноль", "ноль", "ноль")
+            0 : ("ноль", "ноль", "ноль"),
             1 : ("один", "одна", "одно"),
             2 : ("два", "две", "два"),
             3 : ("три", "три", "три"),
@@ -23,6 +23,7 @@ class Numbers:
             9 : ("девять", "девять", "девять")
         },
         2 : {
+            0 : "",
             1 : {
                 0 : "десять",
                 1 : "одиннадцать",
@@ -42,9 +43,10 @@ class Numbers:
             6 : "шестьдесят",
             7 : "семьдесят",
             8 : "восемьдесят",
-            9 : "девяность"
+            9 : "девяносто"
         },
         0 : {
+            0 : "",
             1 : "сто",
             2 : "двести",
             3 : "триста",
@@ -57,9 +59,9 @@ class Numbers:
         }
     }
     _integer_suffix = {
-        4 : ("тысяча", "тысяч"),
-        7 : ("миллион", "миллионов"),
-        10 : ("миллиард", "миллиардов")
+        4 : ("тысяча", "тысячи","тысяч"),
+        7 : ("миллион", "миллиона", "миллионов"),
+        10 : ("миллиард", "миллиарда", "миллиардов")
     }
     _fractional_suffix = {
         1 : ("десятая", "десятых"),
@@ -76,7 +78,7 @@ class Numbers:
     def _is_string(self, value):
         if self._PyMajorVersion == 3:
             return isinstance(value, str)
-        else
+        else:
             return isinstance(value, basestring)
             
     def convert(self, number, gender = "masculine"):
@@ -86,7 +88,7 @@ class Numbers:
             return None
         # проверим вдруг в качестве рода передали число от 0 до 2
         if self._is_string(gender):
-            gender = self._genders.index(gender])
+            gender = self._genders.index(gender)
         # разобьем число на целую и дробную части
         int_part, fract_part = tuple(format(number).split("."))
         
@@ -97,17 +99,33 @@ class Numbers:
         is_11 = False
         while pos > 0:
             # число - цифра текущего разряда
-            digit = int(int_part[pos - 1])
+            digit = int(int_part[len(int_part) - pos])
+            # проверка нуля
+#            if digit == 0 and len(int_part) > 1:
+#                # пропускаем нули, если число не 0
+#                pos -= 1
+#                continue
+                
             # класс разряда - сотни, десятки, единицы (в тч тысяч, миллионов и тд)
             num_class = pos % 3
             # текстовое представление текущего разряда
             str_digit = ""
-            # инкремент позиции. для случая с 11, 12 и тд равно 2 в остальных случаях 1
-            pos_inc = 1
+            int_suffix = ""
+            # определим суффикс
+            if pos in self._integer_suffix:
+                if digit == 1 and not is_11:
+                    int_suffix = self._integer_suffix[pos][0]
+                elif digit > 1 and digit < 5 and not is_11:
+                    int_suffix = self._integer_suffix[pos][1]
+                else:
+                    int_suffix = self._integer_suffix[pos][2]
+            # определим представление        
             if is_11:
                 str_digit = self._number_class[2][1][digit]
+                if pos in self._integer_suffix:
+                    int_suffix = self._integer_suffix[pos][2]
                 is_11 = False
-            else
+            else:
                 if digit == 1 and num_class == 2:
                     # частный случай для десяток (11, 12 и тд)
                     # выставляем признак и будем обрабатывать в следующей итерации
@@ -125,16 +143,14 @@ class Numbers:
                         str_digit = self._number_class[num_class][digit][gen]
                     else:
                         str_digit = self._number_class[num_class][digit]
-            # добавляем текстовое представление разряда в список результата        
-            result.append(str_digit) 
+            # добавляем текстовое представление разряда в список результата 
+            if str_digit:
+                result.append(str_digit) 
             
             # добавим суффикс для 10, 7, 4 разрядов
-            if pos in self._integer_suffix:
-                if digit == 1
-                    result += self._integer_suffix[pos][0] + " "
-                else:
-                    result += self._integer_suffix[pos][1] + " "
+            if int_suffix:
+                result.append(int_suffix) 
             # инкремент счетчика разрядов
-            pos += pos_inc
+            pos -= 1
         # возврат результата
         return result
