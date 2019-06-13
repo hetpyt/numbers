@@ -28,4 +28,13 @@ print(11011.31, " ".join(Num.convert(11011.31, 0, 1, None, int_unit, fract_unit)
 # с нулями
 print(100340001.11, " ".join(Num.convert(100340001.11, 0, 1, None, int_unit, fract_unit)))
 
+unit = ("литр", "литра", "литров")
+print(0, " ".join(Num.convert(0, 0, 1, unit)))
+# проверка 11
+print(11.02, " ".join(Num.convert(11.01, 0, 1, unit)))
+print(11011.31, " ".join(Num.convert(11011.31, 0, 1, unit)))
+print(11011.35, " ".join(Num.convert(11011.35, 0, 1, unit)))
+# с нулями
+print(100340001.11, " ".join(Num.convert(100340001.11, 0, 1, unit)))
+
 
