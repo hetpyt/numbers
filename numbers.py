@@ -180,7 +180,7 @@ class Numbers:
         # последняя цифра целой части
         last_int_digit = self._convert(result, int_part, int_gender)
         result.append(self._choose_suffix(int_unit, last_int_digit))
-        if 0 != int(fract_part):
+        if non_zero_fract_part:
             # конвертируем только ненулевые дробные части
             if None == fract_unit:
                 # не задана единица для дробной части
