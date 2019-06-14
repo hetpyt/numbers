@@ -4,9 +4,9 @@ import os
 import random
 import sys
 
-from pyglet.gl import *
+#from pyglet.gl import *
 import pyglet
-from pyglet.window import key
+#from pyglet.window import key
 
 script_dir = os.path.dirname(__file__)
 
@@ -26,6 +26,9 @@ def update(dt):
     print(index)
     sounds[index].play()
         
-pyglet.clock.schedule_interval(update, 1)
-
+#pyglet.clock.schedule_interval(update, 1)
+player = pyglet.media.Player()
+for i in range(10):
+    player.queue(sounds[i])
+player.play()
 pyglet.app.run()
