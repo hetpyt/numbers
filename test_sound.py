@@ -28,7 +28,16 @@ def update(dt):
         
 #pyglet.clock.schedule_interval(update, 1)
 player = pyglet.media.Player()
-for i in range(10):
+for i in range(2):
     player.queue(sounds[i])
+    
+@player.event
+def on_player_eos():
+    pyglet.app.exit()
+#on_player_eos = player.event(on_player_eos)
+
+
 player.play()
 pyglet.app.run()
+
+print("after run")

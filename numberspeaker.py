@@ -10,6 +10,7 @@ class NumberSpeaker:
     _gender = "masculine", "feminine", "neuter"
     # представление нуля
     _zero = "ноль"
+    _dot = "точка"
     # словарь представлений цифр, разделенных на классы в зависимости от позиции цифры в числе
     _number_class = {
         1 : {
@@ -87,20 +88,23 @@ class NumberSpeaker:
             return suffixes[1]
         else:
             return suffixes[2]
-    
-    def _convert(self, result, num_part, gender = 0):
+            
+    def _convert(self, result, num_part, gender = 0, speak_ahead_zeros = False):
         # счетчик позиции (разряда) цифры в числе начиная с 1 от десятичной точки справа налево
         pos = len(num_part)
         if pos == 1 and int(num_part) == 0:
             # частный случай нуля
             result.append(self._zero)
             return 0
+        # флаг лидирующей последовательности нулей
+        leading_zeros_seq = True
         # признак начала последовательности из 1 и [0,9] начиная в позиции десяток
         # те для обработки чисел 11, 12 и тд до 19, тк тут два цифры идут одним словом
         is_11 = False
         while pos > 0:
             # число - цифра текущего разряда
             digit = int(num_part[len(num_part) - pos])
+            leading_zeros_seq = leading_zeros_seq and digit == 0
             # класс разряда - сотни, десятки, единицы (в тч тысяч, миллионов и тд)
             num_class = pos % 3
             # текстовое представление текущего разряда
@@ -120,7 +124,10 @@ class NumberSpeaker:
                 # установим digit в двухциферное число чтобы вернуть его из функции если оно последнее
                 digit += 10
             else:
-                if digit == 1 and num_class == 2:
+                if digit == 0 and leading_zeros_seq and speak_ahead_zeros:
+                    # число ноль в лидирующей последовательности нулей и его нужно проговаривать
+                    str_digit = self._zero
+                elif digit == 1 and num_class == 2:
                     # частный случай для десяток (10, 11, 12 и тд)
                     # выставляем признак и будем обрабатывать в следующей итерации
                     is_11 = True
@@ -147,15 +154,21 @@ class NumberSpeaker:
             pos -= 1
         # возврат результата
         return digit 
-        
-    def convert(self, number, int_gender = 0, fract_gender = 0, unit = None, int_unit = None, fract_unit = None):
+    
+    def _check_number(self, number):
         # преобразуем к числу с плавающей точкой и округляем до 5 знаков после запятой
         number = round(float(number), 5)
         # проверка на размерность числа
         if number > self._max_number:
+            raise Exception("Too large number")
             return None
         # разобьем число на целую и дробную части
-        int_part, fract_part = tuple(format(number).split("."))
+        return tuple(format(number).split("."))
+        
+    def convert(self, number, int_gender = 0, fract_gender = 0, unit = None, int_unit = None, fract_unit = None):
+        """Преобразует число в строковое представление с соблюдением правил русского языка"""
+        # преобразуем к числу с плавающей точкой и округляем до 5 знаков после запятой
+        int_part, fract_part = self._check_number(number)
         non_zero_fract_part = 0 != int(fract_part)
         # список результата
         result = []
@@ -191,4 +204,23 @@ class NumberSpeaker:
                 result.append(self._choose_suffix(unit, last_int_digit))
         # возврат результата
         return result
+        
+    def convert_by_groups(self, number, group_size = 3):
+        """Преобразует число в строковое представление триадами цифр"""
+        int_part, fract_part = self._check_number(number)
+        non_zero_fract_part = 0 != int(fract_part)
+        result = []
+        # преобразуем целую часть
+        for i in range(0, len(int_part), group_size):
+            self._convert(result, int_part[i : i + group_size], 0, True)
+        if non_zero_fract_part:
+            result.append(self._dot)
+            # преобразуем дробную часть
+            for i in range(0, len(fract_part), group_size):
+                self._convert(result, fract_part[i : i + group_size], 0, True)
+        return result
+        
+    def convert_by_numeral(self, number):
+        """Преобразует число в строковое представление поциферно"""
+        return self.convert_by_groups(number, 1)
         
