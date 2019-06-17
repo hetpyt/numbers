@@ -2,9 +2,9 @@
 # -*- coding: utf-8 -*-
 import random
 import math
-from numbers import Numbers
+from numberspeaker import NumberSpeaker
 # создание экземляра класса - объекта
-Num = Numbers()
+Num = NumberSpeaker()
 
 # цикл из десяти случайных чисел размером от 0 до _max_number
 for i in range(10):

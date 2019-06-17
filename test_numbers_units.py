@@ -2,9 +2,9 @@
 # -*- coding: utf-8 -*-
 import random
 import math
-from numbers import Numbers
+from numberspeaker import NumberSpeaker
 # создание экземляра класса - объекта
-Num = Numbers()
+Num = NumberSpeaker()
 
 int_unit = ("рубль", "рубля", "рублей")
 fract_unit = ("копейка", "копейки", "копеек")
