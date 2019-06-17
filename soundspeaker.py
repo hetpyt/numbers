@@ -85,6 +85,7 @@ class SoundSpeaker(NumberSpeaker):
 
         @player.event
         def on_player_eos():
+            player.delete()
             pyglet.app.exit()
 
         for word in sequence:
