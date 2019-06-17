@@ -1,9 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-import sys
-import math
 
-class Numbers:
+class NumberSpeaker:
     """Транслирует цифровое представление чисел в текстовое"""
     _PyMajorVersion = 3
     # максимальное число девятьсот девяность девять миллиардов ...
@@ -80,14 +78,8 @@ class Numbers:
     }
     
     def __init__(self):
-        _PyMajorVersion = sys.version_info[0]
+        pass
     
-    def _is_string(self, value):
-        if self._PyMajorVersion == 3:
-            return isinstance(value, str)
-        else:
-            return isinstance(value, basestring)
-
     def _choose_suffix(self, suffixes, digit):
         if digit == 1:
             return suffixes[0]
