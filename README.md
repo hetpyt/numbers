@@ -1,4 +1,6 @@
 # numbers
-requirements:
-  AVbin
-  pyglet-1.3.2
+requirements:<br>
+  <ul>
+  <li>AVbin</li>
+  <li>pyglet-1.3.2</li>
+  </ul>
