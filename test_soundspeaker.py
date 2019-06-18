@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from soundspeaker import SoundSpeaker
+from lib.soundspeaker import SoundSpeaker
 
 sp = SoundSpeaker()
 
