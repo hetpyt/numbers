@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 import random
 import math
-from numberspeaker import NumberSpeaker
+from moop.numberspeaker import NumberSpeaker
 # создание экземляра класса - объекта
 Num = NumberSpeaker()
 

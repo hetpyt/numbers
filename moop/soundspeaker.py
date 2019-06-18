@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import pyglet
-from lib.numberspeaker import NumberSpeaker
+from moop.numberspeaker import NumberSpeaker
 
 class SoundSpeaker(NumberSpeaker):
     """speak the sequence"""
@@ -77,7 +77,7 @@ class SoundSpeaker(NumberSpeaker):
     def __init__(self):
         # инициализация pyglet
         #pyglet.options['audio'] = ('openal', 'pulse', 'directsound', 'silent')
-        pyglet.resource.path = ['res']
+        pyglet.resource.path = ['moop/res']
         pyglet.resource.reindex()
     
     def speak(self, sequence):

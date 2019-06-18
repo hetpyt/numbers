@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from lib.soundspeaker import SoundSpeaker
+from moop.soundspeaker import SoundSpeaker
 
 sp = SoundSpeaker()
 
