@@ -8,6 +8,7 @@ class ConfigReader(dict, IError):
     """read configuration from file"""
     def __init__(self, file_name):
         super(ConfigReader, self).__init__()
+        self.reset_error()
         self._file_name = file_name
         # читаем файл
         self.read()
@@ -23,8 +24,8 @@ class ConfigReader(dict, IError):
         try:
             file = open(self._file_name, "r", newline = os.linesep)
         except Exception as e:
-            #raise Exception("Can't open config file.") from e
-            self._set_error("Can't open config file {}".format(self._file_name))
+            self._set_error("Can't open config file '{}': {}".format(self._file_name, e))
+            return
         
         try:
             # цикл по строкам файла
@@ -38,8 +39,8 @@ class ConfigReader(dict, IError):
                 super(ConfigReader, self).__setitem__(key, value)
 
         except ValueError as e:
-            #raise Exception("config syntax error at'" + line + "'" ) from e
-            self._set_error("config syntax error at line #{}".format(line_counter))
+            self._set_error("config syntax error at line #{}: key=value required".format(line_counter))
+            return
             
         finally:
             file.close()

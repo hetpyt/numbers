@@ -3,11 +3,12 @@
 
 from moop.soundspeaker import SoundSpeaker
 
-sp = SoundSpeaker()
+sp = SoundSpeaker(['moop/res'])
 
 print(17036)
 sp.speak(sp.convert_by_numeral(17036))
-
+if sp.is_error():
+    print(sp.get_error())
 print(340001)
 sp.speak(sp.convert_by_groups(340001, 3))
 

@@ -3,12 +3,13 @@
 
 import pyglet
 from moop.numberspeaker import NumberSpeaker
+from moop.ierror import IError
 
-class SoundSpeaker(NumberSpeaker):
+class SoundSpeaker(NumberSpeaker, IError):
     """speak the sequence"""
     _zero = "0"
     _dot = "dot"
-    # словарь представлений цифр, разделенных на классы в зависимости от позиции цифры в числе
+    # словарь имен файлов ресурсов с произносимыми цифрами и суффиксами, разделенныч на классы в зависимости от позиции цифры в числе
     _number_class = {
         1 : {
             0 : ("", "", ""),
@@ -74,10 +75,11 @@ class SoundSpeaker(NumberSpeaker):
         4 : ("10-4_1", "10-4_24", "10-4_5"),
         5 : ("10-5_1", "10-5_24", "10-5_5")
     }
-    def __init__(self):
+    def __init__(self, resource_paths):
+        self.reset_error()
         # инициализация pyglet
-        #pyglet.options['audio'] = ('openal', 'pulse', 'directsound', 'silent')
-        pyglet.resource.path = ['moop/res']
+        pyglet.options['audio'] = ('openal', 'pulse', 'directsound')
+        pyglet.resource.path = resource_paths #['moop/res']
         pyglet.resource.reindex()
     
     def speak(self, sequence):
@@ -87,8 +89,14 @@ class SoundSpeaker(NumberSpeaker):
         def on_player_eos():
             player.delete()
             pyglet.app.exit()
-
-        for word in sequence:
-            player.queue(pyglet.resource.media(word + ".wav", streaming=False))
-        player.play()
+        try:
+            for word in sequence:
+                player.queue(pyglet.resource.media(word + ".wav", streaming=False))
+            player.play()
+        except pyglet.resource.ResourceNotFoundException as e:
+            self._set_error("can't play: resource not found: {}".format(e))
+            return
+        except Exception as e:
+            self._set_error("can't play: no driver")
+            return
         pyglet.app.run()
