@@ -4,7 +4,7 @@ from serial import Serial
 from serial.threaded import ReaderThread, LineReader
 from serial.serialutil import SerialException
 from queue import Queue, Empty
-from time import clock, sleep as sys_sleep
+from time import sleep as sys_sleep
 # debug
 from random import randint
 
@@ -24,16 +24,13 @@ class MyReaderThread(ReaderThread):
 class MyLineReader(LineReader):
     TERMINATOR = b'\n'
     def connection_made(self, transport):
-        self.transport = transport
+        super(MyLineReader, self).connection_made(transport)
         transport.serial.rts = False
         self._lines = Queue()
         print('connection_made')
 
-
     def connection_lost(self, exc):
         print('connection_lost')
-        if exc:
-            #pass
     
     def handle_line(self, line):
         self._lines.put(line)
@@ -45,28 +42,32 @@ class MyLineReader(LineReader):
     def get_line(self):
         return self._lines.get_nowait()
         
-def create_com_reader_thread(port, baudrate = 9600, protocol = None):
-    ser_thread = MyReaderThread(port, baudrate, protocol)
-    ser_thread.start()
-    transport, instance = ser_thread.connect()
-    return ser_thread, transport, instance
-
-def is_alive(thread):
-    if isinstance(thread, ReaderThread):
-        return thread.is_alive()
-    else:
-        return False
-        
 if __name__ == '__main__':
     port = 'COM5'
     baudrate = 9600
     
     counter = 0
     ser_thread = None
+    instance = None
     # main loop
     while True:
-        if is_alive(ser_thread):
-            # цикл ридера жив - можно работать
+        # проверяем нить ридера
+        if (ser_thread == None) or (not ser_thread.is_alive()):
+            # нить ридера не существует или мертва - нужно (пере)запустить
+            print('thread is dead')
+            # перезупускаем когда вычитаем все строки из текущего ридера
+            if (instance == None) or (instance.is_empty()):
+                # текущий ридек не существует или пуст
+                print('create thread')
+                try:
+                    ser_thread = MyReaderThread(port, baudrate, MyLineReader)
+                    ser_thread.start()
+                    _, instance = ser_thread.connect()
+                except Exception as e:
+                    print("can't create thread: {}".format(e))
+        # делаем полезную работу
+        # пишем в порт
+        if instance:
             if randint(0, 10) >= 5:
                 data = 'counter = {}'.format(counter)
                 print('sent: {}'.format(data))
@@ -74,18 +75,13 @@ if __name__ == '__main__':
                     instance.write_line(data)
                 except Exception as e:
                     print("can't write: {}".format(e))
+            # читаем из порта строку если есть
             try:
                 print('recieved: {}'.format(instance.get_line()))
             except Empty as e:
                 print('empty: {}'.format(e))
-        else:
-            # цикл ридера мертв - нужно (пере)запустить
-            print('thread is dead - create')
-            try:
-                ser_thread, transport, instance = create_com_reader_thread(port, baudrate, MyLineReader)
-            except Exception as e:
-                print("can't create thread: {}".format(e))
 
+        # задержка - убрать в проде
         counter += 1
-        sys_sleep(0.01)
+        sys_sleep(1)
     print('end')
