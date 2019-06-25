@@ -3,7 +3,9 @@
 
 class IError():
     def __init__(self):
+        #print('IError __init__')
         self.reset_error()
+        super().__init__()
         
     def _set_error(self, text):
         self._error = True
