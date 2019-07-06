@@ -82,18 +82,18 @@ class SoundSpeaker(NumberSpeaker, IError):
 
     def speak(self, sequence):
         
-        try:
-            data = bytes()
-            for word in sequence:
-                wave_read = wave.open(self._res_path + '/' + word + '.wav', 'rb')
-                num_channels = wave_read.getnchannels()
-                bytes_per_sample = wave_read.getsampwidth()
-                sample_rate = wave_read.getframerate()
-                data =  data.join(wave_read.readframes(wave_read.getnframes()))
-                
-            play_obj = SA.play_buffer(data, num_channels, bytes_per_sample, sample_rate)
-            play_obj.wait_done()
+        #try:
+        data = bytes()
+        for word in sequence:
+            wave_read = wave.open(self._res_path + '/' + word + '.wav', 'rb')
+            num_channels = wave_read.getnchannels()
+            bytes_per_sample = wave_read.getsampwidth()
+            sample_rate = wave_read.getframerate()
+            data = data.join(wave_read.readframes(wave_read.getnframes()))
             
-        except Exception as e:
-            self._set_error("can't play: {}".format(e))
-            return
+        play_obj = SA.play_buffer(data, num_channels, bytes_per_sample, sample_rate)
+        play_obj.wait_done()
+            
+        # except Exception as e:
+            # self._set_error("can't play: {}".format(e))
+            # return
