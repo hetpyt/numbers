@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-
+import os
 import simpleaudio as SA
 import wave
 from moop.numberspeaker import NumberSpeaker
@@ -84,16 +84,16 @@ class SoundSpeaker(NumberSpeaker, IError):
         
         #try:
         data = bytes()
+        get_params = True
         for word in sequence:
-            wave_read = wave.open(self._res_path + '/' + word + '.wav', 'rb')
-            num_channels = wave_read.getnchannels()
-            bytes_per_sample = wave_read.getsampwidth()
-            sample_rate = wave_read.getframerate()
-            data = data + wave_read.readframes(wave_read.getnframes())
-            
-        play_obj = SA.play_buffer(data, num_channels, bytes_per_sample, sample_rate)
-        #play_obj.wait_done()
-            
-        # except Exception as e:
-            # self._set_error("can't play: {}".format(e))
-            # return
+            res_name = os.path.join(self._res_path, word + '.wav')
+            with wave.open(res_name, 'rb') as wr:
+                if get_params:
+                    get_params = False
+                    nc = wr.getnchannels()
+                    bps = wr.getsampwidth()
+                    fr = wr.getframerate()
+                data = data + wr.readframes(wr.getnframes())
+    
+        play_obj = SA.play_buffer(data, nc, bps, fr)
+        play_obj.wait_done()
