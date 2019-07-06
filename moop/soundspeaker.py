@@ -86,7 +86,7 @@ class SoundSpeaker(NumberSpeaker, IError):
             for word in sequence:
                 wave_obj = SA.WaveObject.from_wave_file(self._res_path + '/' + word + '.wav')
                 play_obj = wave_obj.play()
-                play_obj.wait_done()
+                #play_obj.wait_done()
         except Exception as e:
             self._set_error("can't play: {}".format(e))
             return
