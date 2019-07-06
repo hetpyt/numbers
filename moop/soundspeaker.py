@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import pyglet
+import simpleaudio as SA
+import wave
 from moop.numberspeaker import NumberSpeaker
 from moop.ierror import IError
 
@@ -75,28 +76,17 @@ class SoundSpeaker(NumberSpeaker, IError):
         4 : ("10-4_1", "10-4_24", "10-4_5"),
         5 : ("10-5_1", "10-5_24", "10-5_5")
     }
-    def __init__(self, resource_paths):
+    def __init__(self, resource_path):
         self.reset_error()
-        # инициализация pyglet
-        pyglet.options['audio'] = ('openal', 'pulse', 'directsound')
-        pyglet.resource.path = resource_paths #['moop/res']
-        pyglet.resource.reindex()
-    
+		self._res_parth = resource_path
+		
     def speak(self, sequence):
-        player = pyglet.media.Player()
-
-        @player.event
-        def on_player_eos():
-            player.delete()
-            pyglet.app.exit()
+        
         try:
             for word in sequence:
-                player.queue(pyglet.resource.media(word + ".wav", streaming=False))
-            player.play()
-        except pyglet.resource.ResourceNotFoundException as e:
+				wave_obj = sa.WaveObject.from_wave_file(self._res_path + '/' + word + '.wav')
+				play_obj = wave_obj.play()
+				play_obj.wait_done()
+        except Exception as e:
             self._set_error("can't play: resource not found: {}".format(e))
             return
-        except Exception as e:
-            self._set_error("can't play: no driver")
-            return
-        pyglet.app.run()

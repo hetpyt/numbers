@@ -3,7 +3,7 @@
 
 from moop.soundspeaker import SoundSpeaker
 
-sp = SoundSpeaker(['moop/res'])
+sp = SoundSpeaker('moop/res')
 
 print(17036)
 sp.speak(sp.convert_by_numeral(17036))
