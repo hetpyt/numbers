@@ -78,15 +78,15 @@ class SoundSpeaker(NumberSpeaker, IError):
     }
     def __init__(self, resource_path):
         self.reset_error()
-		self._res_parth = resource_path
-		
+        self._res_parth = resource_path
+
     def speak(self, sequence):
         
         try:
             for word in sequence:
-				wave_obj = sa.WaveObject.from_wave_file(self._res_path + '/' + word + '.wav')
-				play_obj = wave_obj.play()
-				play_obj.wait_done()
+                wave_obj = sa.WaveObject.from_wave_file(self._res_path + '/' + word + '.wav')
+                play_obj = wave_obj.play()
+                play_obj.wait_done()
         except Exception as e:
             self._set_error("can't play: resource not found: {}".format(e))
             return
