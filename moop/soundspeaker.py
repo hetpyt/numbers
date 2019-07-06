@@ -92,7 +92,7 @@ class SoundSpeaker(NumberSpeaker, IError):
             data = data + wave_read.readframes(wave_read.getnframes())
             
         play_obj = SA.play_buffer(data, num_channels, bytes_per_sample, sample_rate)
-        play_obj.wait_done()
+        #play_obj.wait_done()
             
         # except Exception as e:
             # self._set_error("can't play: {}".format(e))
