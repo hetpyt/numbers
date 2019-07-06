@@ -89,7 +89,7 @@ class SoundSpeaker(NumberSpeaker, IError):
             num_channels = wave_read.getnchannels()
             bytes_per_sample = wave_read.getsampwidth()
             sample_rate = wave_read.getframerate()
-            data = data.join(wave_read.readframes(wave_read.getnframes()))
+            data = data + wave_read.readframes(wave_read.getnframes())
             
         play_obj = SA.play_buffer(data, num_channels, bytes_per_sample, sample_rate)
         play_obj.wait_done()
