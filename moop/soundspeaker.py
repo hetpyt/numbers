@@ -78,7 +78,7 @@ class SoundSpeaker(NumberSpeaker, IError):
     }
     def __init__(self, resource_path):
         self.reset_error()
-        self._res_parth = resource_path
+        self._res_path = resource_path
 
     def speak(self, sequence):
         
