@@ -87,13 +87,19 @@ class SoundSpeaker(NumberSpeaker, IError):
         get_params = True
         for word in sequence:
             res_name = os.path.join(self._res_path, word + '.wav')
-            with wave.open(res_name, 'rb') as wr:
-                if get_params:
-                    get_params = False
-                    nc = wr.getnchannels()
-                    bps = wr.getsampwidth()
-                    fr = wr.getframerate()
-                data = data + wr.readframes(wr.getnframes())
-    
+            try:
+                with wave.open(res_name, 'rb') as wr:
+                    if get_params:
+                        get_params = False
+                        nc = wr.getnchannels()
+                        bps = wr.getsampwidth()
+                        fr = wr.getframerate()
+                    data = data + wr.readframes(wr.getnframes())
+            except FileNotFoundError as e:
+                self._set_error("Can't open resource file: {}".format(e))
+                return
+            except wave.Error as e:
+                self._set_error("Resource file is not valid wave file: {}".format(e))
+                return
         play_obj = SA.play_buffer(data, nc, bps, fr)
         play_obj.wait_done()
