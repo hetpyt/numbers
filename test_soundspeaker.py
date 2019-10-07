@@ -2,8 +2,9 @@
 # -*- coding: utf-8 -*-
 
 from moop.soundspeaker import SoundSpeaker
+from time import sleep
 
-sp = SoundSpeaker(['moop/res'])
+sp = SoundSpeaker('moop/res')
 
 print(17036)
 sp.speak(sp.convert_by_numeral(17036))
@@ -17,3 +18,5 @@ sp.speak(sp.convert(249411.56))
 
 print("Здравствуйте, уважаемый Андрей Сергеевич")
 sp.speak(["zero_special"])
+
+sleep(10)
