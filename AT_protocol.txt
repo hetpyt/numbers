@@ -1,0 +1,32 @@
+Протокол AT
+1. ответ на входящий вызов (макс время выполнения команды 20s)
+>>ATA
+<<OK
+or
+<<NO CARRIER
+2. завершение вызова (макс время выполнения команды 20s)
+>>ATH
+<<OK
+3. DTMF 
+включение AT+DDET=<mode>[,<interval>][,<reportMode>][,<ssdet>]
+>>AT+DDET=1,0,0,0
+<<OK
+or
+<<ERROR
+    1)If <reoportMode> is set to 0
+    +DTMF: <key>
+    2)If <reportMode> is set to 1
+    +DTMF: <key>,<last time>
+выключение
+>>AT+DDET=0
+<<OK
+or
+<<ERROR
+тест
+>>AT+DDET=?
+<<+DDET: (0,1),(0-10000),(0,1),(0,1)
+<<OK
+статус
+>>AT+DDET?
+<<+DDET: <mode>,<interval>,<reportMode>,<ssdet>
+<<OK
