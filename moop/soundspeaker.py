@@ -4,12 +4,11 @@ import os
 import simpleaudio as SA
 import wave
 from moop.numberspeaker import NumberSpeaker
-from moop.ierror import IError
 
-class SoundSpeaker(NumberSpeaker, IError):
+class SoundSpeaker(NumberSpeaker):
     """speak the sequence"""
     def __init__(self, resource_path):
-        self.reset_error()
+        self._play_obj = None
         self._res_path = resource_path
         self._zero = "0"
         self._dot = "dot"
@@ -96,10 +95,24 @@ class SoundSpeaker(NumberSpeaker, IError):
                         fr = wr.getframerate()
                     data = data + wr.readframes(wr.getnframes())
             except FileNotFoundError as e:
-                self._set_error("Can't open resource file: {}".format(e))
-                return
+                raise Exception("Can't open resource file.") from e
             except wave.Error as e:
-                self._set_error("Resource file is not valid wave file: {}".format(e))
-                return
-        play_obj = SA.play_buffer(data, nc, bps, fr)
-        play_obj.wait_done()
+                raise Exception"Resource file is not valid wave file.") from e
+        self._play_obj = SA.play_buffer(data, nc, bps, fr)
+        #self._play_obj.wait_done()
+    
+    def is_speaking(self):
+        if not self._play_obj == None:
+            return self._play_obj.is_playing()
+        else:
+            return False
+    
+    def stop(self):
+        if self.is_speaking():
+            self._play_obj.stop()
+        self._play_obj = None
+            
+    @staticmethod
+    def stop_all():
+        SA.stop_all()
+        
