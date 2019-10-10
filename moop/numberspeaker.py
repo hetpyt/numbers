@@ -166,9 +166,9 @@ class NumberSpeaker:
     def convert(self, number, int_gender = 0, fract_gender = 0, unit = None, int_unit = None, fract_unit = None):
         """Преобразует число в строковое представление с соблюдением правил русского языка"""
         # преобразуем к числу с плавающей точкой и округляем до 5 знаков после запятой
-        try
+        try:
             int_part, fract_part = self._check_number(number)
-        except Exception as e
+        except Exception as e:
             raise Exception("Can't convert.") from e
         non_zero_fract_part = 0 != int(fract_part)
         # список результата
@@ -208,9 +208,9 @@ class NumberSpeaker:
         
     def convert_by_groups(self, number, group_size = 3):
         """Преобразует число в строковое представление триадами цифр"""
-        try
+        try:
             int_part, fract_part = self._check_number(number)
-        except Exception as e
+        except Exception as e:
             raise Exception("Can't convert.") from e
 
         non_zero_fract_part = 0 != int(fract_part)

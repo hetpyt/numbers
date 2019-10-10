@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-import threading.queue
+import queue
 
-class FilteredQueue(threading.queue.Queue):
+class FilteredQueue(queue.Queue):
     
     def put(self, item, block=True, timeout=None):
         # do some filtering things

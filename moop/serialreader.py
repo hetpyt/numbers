@@ -13,31 +13,45 @@ class SerialReaderThread(ReaderThread):
         com.baudrate = baudrate
         com.bytesize = 8
         com.parity = 'N'
-        try:
-            com.open()
-        except SerialException as e:
-            raise Exception("can't open port '{}':{}".format(port, e)) from e
-        super(MyReaderThread, self).__init__(com, protocol)
+        com.open()
+        super(SerialReaderThread, self).__init__(com, protocol)
+
+def create_thread(port, baudrate, protocol):
+    com = Serial()
+    com.port = port
+    com.baudrate = baudrate
+    com.bytesize = 8
+    com.parity = 'N'
+    com.open()
+    return ReaderThread(com, protocol)
 
 class SerialLineReader(LineReader):
-    TERMINATOR = b'\n'
+    TERMINATOR = b'\r'
     def connection_made(self, transport):
-        super(MyLineReader, self).connection_made(transport)
+        print("connetction made")
         transport.serial.rts = False
+        self._transport = transport
         self._lines = FilteredQueue()
+        super(SerialLineReader, self).connection_made(transport)
         
     def connection_lost(self, exc):
-        pass
+        print("connection_lost")
+        print(self._transport)
     
     def handle_line(self, line):
+        print("handle line '{}'".format(line))
         self._lines.put(line)
+        print("handle line2")
 
     # methods below called from another thread
-    def get_count(self):
+    def get_size(self):
         self._lines.join()
         size = self._lines.qsize()
-        self._lines._task_done()
+        #self._lines.task_done()
         return size
         
     def get_line(self):
-        return self._lines.get()
+        try:
+            return self._lines.get(False)
+        except Empty as e:
+            return None
