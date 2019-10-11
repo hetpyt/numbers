@@ -1,15 +1,15 @@
 new
-AT+CMGF=1 		    /SMS mode 0-PDU или 1-Text
-AT+CMGF=1;&W 	    /SMS mode Text, save parametr
-AT+CMGR=3 		    /Read SMS №3
+AT+CMGF=1	    	/SMS mode 0-PDU или 1-Text
+AT+CMGF=1;&W		/SMS mode Text, save parametr
+AT+CMGR=3 		/Read SMS №3
 AT+CMGDA="DEL ALL"	/Del all SMS
-AT+CLIP=1		    /AON on
-AT+DDET=1		    /DTMF on
-AT+DDET?		    /Status DTFM 
-ATA			        /Answer an Incoming Call 
-ATS0=5			    /Set 5 of Rings before Automatically Answering the Call
-ATS0=0              /Turn Off Automatically Answering the Call
-ATS0?			    /Get Number of Rings before Automatically Answering the Call
+AT+CLIP=1		/AON on
+AT+DDET=1		/DTMF on
+AT+DDET?		/Status DTFM 
+ATA			/Answer an Incoming Call 
+ATS0=5			/Set 5 of Rings before Automatically Answering the Call
+ATS0=0              	/Turn Off Automatically Answering the Call
+ATS0?			/Get Number of Rings before Automatically Answering the Call
 AT&W Parameter Saving 
 	
 Поведение каждого из параметров, характеризуется одним из трех значений свойства Parameter Saving Mode:
