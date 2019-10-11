@@ -10,6 +10,7 @@ ATA			/Answer an Incoming Call
 ATS0=5			/Set 5 of Rings before Automatically Answering the Call
 ATS0=0              	/Turn Off Automatically Answering the Call
 ATS0?			/Get Number of Rings before Automatically Answering the Call
+AT+CMIC=0,15		/Set microfone sensitivity
 AT&W Parameter Saving 
 	
 Поведение каждого из параметров, характеризуется одним из трех значений свойства Parameter Saving Mode:
