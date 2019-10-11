@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+import loggingwrapper as log
 from serial import Serial
 from serial.threaded import ReaderThread, LineReader
 from serial.serialutil import SerialException
@@ -16,39 +17,26 @@ class SerialReaderThread(ReaderThread):
         com.open()
         super(SerialReaderThread, self).__init__(com, protocol)
 
-def create_thread(port, baudrate, protocol):
-    com = Serial()
-    com.port = port
-    com.baudrate = baudrate
-    com.bytesize = 8
-    com.parity = 'N'
-    com.open()
-    return ReaderThread(com, protocol)
-
 class SerialLineReader(LineReader):
     TERMINATOR = b'\r'
     def connection_made(self, transport):
-        print("connetction made")
+        #print("connection made")
+        log.debug("connection_made")
         transport.serial.rts = False
         self._transport = transport
         self._lines = FilteredQueue()
         super(SerialLineReader, self).connection_made(transport)
         
     def connection_lost(self, exc):
-        print("connection_lost")
-        print(self._transport)
-    
+        log.debug("connection_lost({})".format(exc))
+        
     def handle_line(self, line):
-        print("handle line '{}'".format(line))
+        log.debug("handle_line({})".format(line))
         self._lines.put(line)
-        print("handle line2")
 
     # methods below called from another thread
     def get_size(self):
-        self._lines.join()
-        size = self._lines.qsize()
-        #self._lines.task_done()
-        return size
+        return self._lines.qsize()
         
     def get_line(self):
         try:
