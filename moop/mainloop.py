@@ -47,6 +47,7 @@ if __name__ == '__main__':
                     __ser_thread = SerialReaderThread(__config["com_port"], __config["com_baudrate"], SerialLineReader)
                     __ser_thread.start()
                     transport, __ser_protocol = __ser_thread.connect()
+                    __dispatcher.initProtocol(__ser_protocol)
                     #print(transport)
                     #print(__ser_protocol)
                 except Exception as e:
@@ -58,7 +59,7 @@ if __name__ == '__main__':
         if __ser_protocol and __ser_protocol.get_size():
             line = __ser_protocol.get_line()
             __log.info("recieved message '{}'".format(line))
-            __dispatcher.process_message(line)
+            __dispatcher.processMessage(line)
             
         # задержка 
         __counter += 1
