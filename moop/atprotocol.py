@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-import loggingwrapper as log
+#import loggingwrapper as log
 # служебные символы
 ARGIMENTS_SEPARATOR = ","
 COMMAND_SEPARATOR = ":"
@@ -15,22 +15,14 @@ MSG_CALL_WAITING_RES = "+CCWA"
 
 END_LINE = "\r"
 
+ON_CMD_SENT = 1
+ON_CMD_RESULT = 2
+ON_INCOMING_CALL = 3
+ON_CALLER_NUMBER_RECIEVED = 4
+
+ACTIONS = (ON_CMD_SENT, ON_CMD_RESULT, ON_INCOMING_CALL, ON_CALLER_NUMBER_RECIEVED)
+
 class ATProtocol:
-    # Unsolicited results
-    SUPPORTED_MESSAGES = {
-        "RING" : {
-            "ACTION" : None
-            "PARAMS" : ()
-        },
-        "+CCWA" : {
-            "ACTION" : None
-            "PARAMS" : ("NUMBER", "TYPE", "CLASS")
-            
-        }
-    }
-    ON_CMD_SENT = 1
-    ON_CMD_RESULT = 2
-    ACTIONS = (ON_CMD_SENT, ON_CMD_RESULT)
     
     def __init__(self, serial_protocol):
         self._protocol = serial_protocol
@@ -42,17 +34,21 @@ class ATProtocol:
             self._actions[action](*args, **kwargs)
         
     def parseMessage(self, msg):
-        if self._last_cmd:
-            # была отправлена конманда устройству
-            if msg in COMMAND_RESULTS:
-                # сообщение является результатом команды
+        if msg in COMMAND_RESULTS:
+            # сообщение является результатом команды
+            if self._last_cmd:
+                # была отправлена конманда устройству
                 is_ok = (msg == COMMAND_SUCCESS_RES)
-                self._callBack("on_cmd_result") 
-                pass
-    
+                self._callBack(ON_CMD_RESULT)
+            else:
+                # не было команды устройству
+        else:
+            # нет команды - сообщение не затребовано
+            
     def sendCmd(self, cmd):
         try:
             self._protocol.write(cmd + END_LINE)
+            self._callBack(ON_CMD_SENT)
         except Exception as e:
             raise Exception("can't send command '{}' to device".format(cmd)) from e
     
