@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import loggingwrapper as log
+#import logging as log
 from serial import Serial
 from serial.threaded import ReaderThread, LineReader
 from serial.serialutil import SerialException

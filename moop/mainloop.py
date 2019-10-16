@@ -32,7 +32,7 @@ if __name__ == '__main__':
     # globals
     __counter = 0
     __ser_thread = None
-    __ser_protocol = None
+    __ser_reader = None
     __dispatcher = OperatorDispatcher()
     # main loop
     __log.debug("main loop started")
@@ -41,23 +41,25 @@ if __name__ == '__main__':
         if (__ser_thread == None) or (not __ser_thread.is_alive()):
             # нить ридера не существует или мертва - нужно (пере)запустить
             # перезупускаем когда вычитаем все строки из текущего ридера
-            if (__ser_protocol == None) or (__ser_protocol.get_size() == 0):
+            if (__ser_reader == None) or (__ser_reader.get_size() == 0):
                 # текущий ридер не существует или пуст
                 try:
                     __ser_thread = SerialReaderThread(__config["com_port"], __config["com_baudrate"], SerialLineReader)
                     __ser_thread.start()
-                    transport, __ser_protocol = __ser_thread.connect()
-                    __dispatcher.initProtocol(__ser_protocol)
-                    #print(transport)
-                    #print(__ser_protocol)
+                    transport, __ser_reader = __ser_thread.connect()
+                    print("1")
+
+                    __dispatcher.initProtocol(transport)
+                    print("2")
+                    #print(__ser_reader)
                 except Exception as e:
                     __log.exception("can't create thread")
                     #print("can't create thread: {}".format(e))
                     __log.info("retry after 10 seconds...")
                     sleep(10)
         # делаем полезную работу
-        if __ser_protocol and __ser_protocol.get_size():
-            line = __ser_protocol.get_line()
+        if __ser_reader and __ser_reader.get_size():
+            line = __ser_reader.get_line()
             __log.info("recieved message '{}'".format(line))
             __dispatcher.processMessage(line)
             
