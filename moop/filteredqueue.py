@@ -5,6 +5,9 @@ import queue
 class FilteredQueue(queue.Queue):
     
     def put(self, item, block=True, timeout=None):
-        # do some filtering stuff
-        super(FilteredQueue, self).put(item, block, timeout)
+        # фильтрация строк
+        str = item.strip()
+        if str:
+            # игнорируем пустые строки и строки содержащие только пробельные символы
+            super(FilteredQueue, self).put(str, block, timeout)
     

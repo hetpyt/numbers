@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import loggingwrapper as log
-
+from aterror import ATConnectionLostError
+from serialreader import SerialReaderThread, SerialLineReader
 # служебные символы
 SYMBOL_CR = "\r" #13 \r
 SYMBOL_LF = "\n" #10 \n
@@ -74,6 +75,7 @@ MSG_DTMF_RECIEVED = "+DTMF"
 # конец строки
 END_LINE = "\r"
 # события
+ON_TICK = 0
 ON_CMD_SENT = 1
 ON_CMD_RESULT = 2
 ON_INCOMING_CALL = 3
@@ -81,13 +83,15 @@ ON_END_CALL = 4
 ON_CALLER_NUMBER_RECIEVED = 5
 ON_DTMF_RECIEVED = 6
 ON_UNKNOWN_MSG = 20
-ACTIONS = (ON_CMD_SENT, ON_CMD_RESULT, ON_INCOMING_CALL, ON_END_CALL, ON_CALLER_NUMBER_RECIEVED, ON_DTMF_RECIEVED, ON_UNKNOWN_MSG)
+ACTIONS = (ON_TICK, ON_CMD_SENT, ON_CMD_RESULT, ON_INCOMING_CALL, ON_END_CALL, ON_CALLER_NUMBER_RECIEVED, ON_DTMF_RECIEVED, ON_UNKNOWN_MSG)
 
 class ATProtocol:
     
-    def __init__(self, serial_protocol):
-        # сохраняем объект для обмена данными с устройством
-        self._protocol = serial_protocol
+    def __init__(self, com_port, com_baudrate):
+        self._com_port = com_port
+        self._com_baudrate = com_baudrate
+        self._ser_thread = None
+        self._ser_reader = None
         # имя последней посланной команды согласно COMMANDS
         self._last_cmd = None
         # ответ последней посланной команды (сохраняется до получения результата и потом отправляется)
@@ -96,6 +100,31 @@ class ATProtocol:
         # события
         self._actions = {key : None for key in ACTIONS}
     
+    def connect(self):
+        try:
+            self._ser_thread = SerialReaderThread(self._com_port, self._com_baudrate, SerialLineReader)
+            self._ser_thread.start()
+            _, self._ser_reader = self._ser_thread.connect()
+        except Exception as e:
+            raise ATConnectionLostError("can't connect to serial device")
+            
+    def tick(self):
+        # проверяем нить ридера
+        if (self._ser_thread == None) or (not self._ser_thread.is_alive()):
+            # нить ридера не существует или мертва - нужно (пере)запустить
+            # перезупускаем когда вычитаем все строки из текущего ридера
+            if (self._ser_reader == None) or (self._ser_reader.get_size() == 0):
+                self.connect()
+        # читаем строку если доступна
+        if self._ser_reader and self._ser_reader.get_size():
+            line = self._ser_reader.get_line()
+            log.info("recieved message '{}'".format(line))
+            self.processMessage(line)
+            
+        self._callBack(ON_TICK)
+    
+        
+        
     def _clear_last_cmd(self):
         self._last_cmd = None
         
@@ -135,48 +164,6 @@ class ATProtocol:
             ret_args = tuple(self._parse_args(args))
         return head.upper(), ret_args
     
-    # def processMessage(self, msg):
-        # head, args = self._parse_msg(msg)
-        
-        # if self._last_cmd:
-            # is_ok = (head in RES_SUCCESS)
-            # if is_ok:
-                # # вызываем событие
-                # pass
-            # else:
-                # # повтор команды
-                # pass
-            # self._callBack(ON_CMD_RESULT, cmd = self._get_last_cmd(True), result = is_ok)
-        
-        # if head in RESULTS and self._last_cmd:
-            # # сообщение является результатом команды
-            # # определяем результат
-            # is_ok = (head == RES_SUCCESS)
-            # if is_ok:
-                # # вызываем событие
-                # pass
-            # else:
-                # # повтор команды
-                # pass
-            # self._callBack(ON_CMD_RESULT, cmd = self._get_last_cmd(True), result = is_ok)
-     
-        # else:
-            # # не было команды устройству - незатребованный результат
-            # if head == MSG_END_CALL:
-                # # завершение вызова на той стороне
-                # self._callBack(ON_END_CALL)
-            # elif head == MSG_INCOMING_CALL:
-                # # входящий вызов
-                # self._callBack(ON_INCOMING_CALL)
-            # elif head == MSG_CALLER_INFO:
-                # # входящий вызов
-                # self._callBack(ON_CALLER_NUMBER_RECIEVED, number = args[0])
-            # elif head == MSG_DTMF_RECIEVED:
-                # # получен символ
-                # self._callBack(ON_DTMF_RECIEVED, symbol = args[0])
-            # else:
-                # self._callBack(ON_UNKNOWN_MSG, message = msg)
-
     def processMessage(self, msg):
         head, args = self._parse_msg(msg)
         # получаем имя последней отправленной команды
@@ -220,7 +207,7 @@ class ATProtocol:
             if not cmd:
                 raise Exception('empty command')
             cmd_line = COMMANDS[cmd]["CMD"] + END_LINE
-            self._protocol.write(cmd_line.encode())
+            self._ser_thread.write(cmd_line.encode())
             self._callBack(ON_CMD_SENT, cmd = cmd)
         except Exception as e:
             raise Exception("can't send command '{}' to device".format(cmd)) from e

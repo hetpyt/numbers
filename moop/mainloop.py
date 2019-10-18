@@ -3,8 +3,9 @@
 from time import sleep
 from sys import exit
 import loggingwrapper as log
-from serialreader import SerialReaderThread, SerialLineReader
+from aterror import ATConnectionLostError
 from configreader import ConfigReader
+from atprotocol import ATProtocol
 from operatordispatcher import OperatorDispatcher
 
     
@@ -30,41 +31,25 @@ if __name__ == '__main__':
         exit(1)
         
     # globals
-    __counter = 0
-    __ser_thread = None
-    __ser_reader = None
-    __dispatcher = OperatorDispatcher()
+    # протокол обмена сообщениями с устройством связи
+    __protocol = ATProtocol(__config["com_port"], __config["com_baudrate"])
+    # диспетчер для управления устройством связи и оператором
+    __dispatcher = OperatorDispatcher(__config)
+    # инициализация протокола в диспетчере
+    __dispatcher.initProtocol(__protocol)
     # main loop
     __log.debug("main loop started")
     while True:
-        # проверяем нить ридера
-        if (__ser_thread == None) or (not __ser_thread.is_alive()):
-            # нить ридера не существует или мертва - нужно (пере)запустить
-            # перезупускаем когда вычитаем все строки из текущего ридера
-            if (__ser_reader == None) or (__ser_reader.get_size() == 0):
-                # текущий ридер не существует или пуст
-                try:
-                    __ser_thread = SerialReaderThread(__config["com_port"], __config["com_baudrate"], SerialLineReader)
-                    __ser_thread.start()
-                    transport, __ser_reader = __ser_thread.connect()
-                    print("1")
-
-                    __dispatcher.initProtocol(transport)
-                    print("2")
-                    #print(__ser_reader)
-                except Exception as e:
-                    __log.exception("can't create thread")
-                    #print("can't create thread: {}".format(e))
-                    __log.info("retry after 10 seconds...")
-                    sleep(10)
-        # делаем полезную работу
-        if __ser_reader and __ser_reader.get_size():
-            line = __ser_reader.get_line()
-            __log.info("recieved message '{}'".format(line))
-            __dispatcher.processMessage(line)
-            
+        # дергаем протокол
+        try:
+            __protocol.tick()
+        except ATConnectionLostError as e:
+            __log.exception("can't create thread")
+            __log.info("retry after 10 seconds")
+            sleep(10)
+        except Exception as e:
+            __log.exception("something goes wrong")
+        
         # задержка 
-        __counter += 1
-        #print("main loop {}".format(__counter))
         sleep(0.1)
     #print('end')

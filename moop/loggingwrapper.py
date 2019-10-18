@@ -14,9 +14,14 @@ CRITICAL = logging.CRITICAL
 def create_log(file_name, log_level):
     logger = logging.getLogger(APP_NAME)
     logger.setLevel(log_level)
+    formatter = logging.Formatter('%(asctime)s (%(thread)d)%(name)s [%(levelname)s] : %(message)s')
     file_h = logging.FileHandler(file_name)
-    file_h.setFormatter(logging.Formatter('%(asctime)s (%(thread)d)%(name)s [%(levelname)s] : %(message)s'))
+    file_h.setFormatter(formatter)
     logger.addHandler(file_h)
+    if log_level == DEBUG:
+        console_h = logging.StreamHandler()
+        console_h.setFormatter(formatter)
+        logger.addHandler(console_h)
     return logger
 
 def debug(msg):
