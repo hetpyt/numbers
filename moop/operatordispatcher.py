@@ -3,7 +3,7 @@
 from enum import Enum
 import loggingwrapper as log
 import atprotocol
-import operator
+import aoperator
 
 class Stage(Enum):
     IDLE = 0
@@ -12,8 +12,9 @@ class Stage(Enum):
     RINGING = 3
     ANSWER = 4
     ANSWERED = 5
+    ENDINGCALL = 6
 
-TICKS_BETWEEN_TEST = 100 # при 0.1 секунде задержки получаем ~ 30 сек
+TICKS_BETWEEN_TEST = 10000 #100 # при 0.1 секунде задержки получаем ~ 30 сек
 
 # получает сообщения от устройства связи и обрабатывает их управляя экземляром класс Operator 
 class OperatorDispatcher:
@@ -52,6 +53,7 @@ class OperatorDispatcher:
         protocol.setAction(atprotocol.ON_END_CALL, self.on_end_call)
         protocol.setAction(atprotocol.ON_CALLER_NUMBER_RECIEVED, self.on_caller_number_recieved)
         protocol.setAction(atprotocol.ON_DTMF_RECIEVED, self.on_DTMF_recieved)
+        protocol.setAction(atprotocol.ON_CMD_TIMEOUT, self.on_cmd_timeout)
         protocol.setAction(atprotocol.ON_UNKNOWN_MSG, self.on_unknown_msg)
         
         self._protocol = protocol
@@ -97,18 +99,37 @@ class OperatorDispatcher:
                 # raise ATConnectionLostError("no connection")
                 pass
                 
-        if self._stage == Stage.ANSWER:
+        elif self._stage == Stage.ANSWER:
             if result:
                 # вызов успешно принят
                 self._set_stage(Stage.ANSWERED)
-                self._operator = operator.Operator(self._config, self._caller_number)
+                # произносим приветствие
+                self._operator.speakGreeting()
+                # проверяем готовность к завершению вызова
+                if self._operator.isReadyForHangoff():
+                    # завершаем вызов
+                    self._set_stage(Stage.ENDINGCALL)
+                    self._protocol.cmdEndCall()
             else:
-                # ждем ногово гудка для повтора ответа
+                # ждем нового гудка для повтора ответа
+                self._operator = None
                 self._set_stage(Stage.IDLE)
+        
+        elif self._stage == Stage.ENDINGCALL:
+            if result:
+                # завершили вызов
+                self._set_stage(Stage.IDLE)
+                self._operator = None
+                
+            else:
+                self._protocol.cmdEndCall()
+    
+    def on_cmd_timeout(self, cmd):
+        pass
         
     def on_incoming_call(self):
         log.debug("incoming call")
-        if self._stage == State.IDLE:
+        if self._stage == Stage.IDLE:
             self._set_stage(Stage.RINGING)
         
     def on_end_call(self):
@@ -118,8 +139,19 @@ class OperatorDispatcher:
         log.debug("caller number recieved {}".format(number))
         # тут уже отвечаем на вызов
         if self._stage == Stage.RINGING:
-            self._set_stage(Stage.ANSWER)
             self._caller_number = number
+            # создаем оператора
+            self._operator = aoperator.Operator(self._config, number)
+            # получем информацию о звонящем из бд
+            if not self._operator.fetchCallerInfo():
+                pass
+                # # не удается получить информацию о звонящем
+                # # воспроизводим сообщение об ошибке и завершаем звонок
+                # self._operator.speakError()
+                # self._set_stage(Stage.ENDINGCALL)
+                # self._protocol.cmdEndCall()
+            # переходим на этам ответа на звонок
+            self._set_stage(Stage.ANSWER)
             self._protocol.cmdAnswerCall()
         
     def on_DTMF_recieved(self, symbol):

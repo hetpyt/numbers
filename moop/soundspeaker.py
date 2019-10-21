@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import os
-import simpleaudio as SA
+#import simpleaudio as SA
 import wave
-from moop.numberspeaker import NumberSpeaker
+import loggingwrapper as log
+from numberspeaker import NumberSpeaker
 
 class SoundSpeaker(NumberSpeaker):
     """speak the sequence"""
@@ -95,13 +96,23 @@ class SoundSpeaker(NumberSpeaker):
                         fr = wr.getframerate()
                     data = data + wr.readframes(wr.getnframes())
             except FileNotFoundError as e:
-                raise Exception("Can't open resource file.") from e
+                #raise Exception("Can't open resource file.") from e
+                log.error("file not found '{}'".format(res_name))
+                return False
             except wave.Error as e:
-                raise Exception"Resource file is not valid wave file.") from e
-        self._play_obj = SA.play_buffer(data, nc, bps, fr)
+                #raise Exception"Resource file is not valid wave file.") from e
+                log.error("Resource file '{}' is not valid wave file.".format(res_name))
+                return False
+        #self._play_obj = SA.play_buffer(data, nc, bps, fr)
         #self._play_obj.wait_done()
+        return True
     
-    def is_speaking(self):
+    def speakAndWait(self, sequence)
+        self.speak(sequence)
+        if self.isSpeaking():
+            self._play_obj.wait_done()
+    
+    def isSpeaking(self):
         if not self._play_obj == None:
             return self._play_obj.is_playing()
         else:
@@ -113,6 +124,6 @@ class SoundSpeaker(NumberSpeaker):
         self._play_obj = None
             
     @staticmethod
-    def stop_all():
+    def stopAll():
         SA.stop_all()
         

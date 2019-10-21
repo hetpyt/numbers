@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 from time import sleep
 from sys import exit
+from globals import __MAIN_LOOP_DELAY__
 import loggingwrapper as log
 from aterror import ATConnectionLostError
 from configreader import ConfigReader
@@ -51,5 +52,5 @@ if __name__ == '__main__':
             __log.exception("something goes wrong")
         
         # задержка 
-        sleep(0.1)
+        sleep(__MAIN_LOOP_DELAY__)
     #print('end')

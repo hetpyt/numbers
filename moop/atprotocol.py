@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+from globals import __MAIN_LOOP_DELAY__
 import loggingwrapper as log
 from aterror import ATConnectionLostError
 from serialreader import SerialReaderThread, SerialLineReader
@@ -13,6 +14,9 @@ SYMBOL_ARG_QUOTE = '"'
 # стандартные результаты выполнения комманд
 R_OK = "OK"
 R_ERR = "ERROR"
+
+CMD_TIMEOUT = int(30 / __MAIN_LOOP_DELAY__) # 30 sec
+
 
 # команды управления 
 COMMANDS = {
@@ -82,8 +86,9 @@ ON_INCOMING_CALL = 3
 ON_END_CALL = 4
 ON_CALLER_NUMBER_RECIEVED = 5
 ON_DTMF_RECIEVED = 6
+ON_CMD_TIMEOUT = 19
 ON_UNKNOWN_MSG = 20
-ACTIONS = (ON_TICK, ON_CMD_SENT, ON_CMD_RESULT, ON_INCOMING_CALL, ON_END_CALL, ON_CALLER_NUMBER_RECIEVED, ON_DTMF_RECIEVED, ON_UNKNOWN_MSG)
+ACTIONS = (ON_TICK, ON_CMD_SENT, ON_CMD_RESULT, ON_INCOMING_CALL, ON_END_CALL, ON_CALLER_NUMBER_RECIEVED, ON_DTMF_RECIEVED, ON_CMD_TIMEOUT, ON_UNKNOWN_MSG)
 
 class ATProtocol:
     
@@ -97,6 +102,8 @@ class ATProtocol:
         # ответ последней посланной команды (сохраняется до получения результата и потом отправляется)
         # принимает значения истина или ложь
         self._last_cmd_test = None
+        #
+        self._last_cmd_timeout = None
         # события
         self._actions = {key : None for key in ACTIONS}
     
@@ -109,6 +116,12 @@ class ATProtocol:
             raise ATConnectionLostError("can't connect to serial device")
             
     def tick(self):
+        if self._last_cmd:
+            self._last_cmd_timeout -= 1
+            if self._last_cmd_timeout <= 0:
+                self._last_cmd_timeout = None
+                self._callBack(ON_CMD_TIMEOUT, cmd = self._get_last_cmd(True))
+
         # проверяем нить ридера
         if (self._ser_thread == None) or (not self._ser_thread.is_alive()):
             # нить ридера не существует или мертва - нужно (пере)запустить
@@ -123,8 +136,6 @@ class ATProtocol:
             
         self._callBack(ON_TICK)
     
-        
-        
     def _clear_last_cmd(self):
         self._last_cmd = None
         
@@ -207,6 +218,7 @@ class ATProtocol:
             if not cmd:
                 raise Exception('empty command')
             cmd_line = COMMANDS[cmd]["CMD"] + END_LINE
+            self._last_cmd_timeout = CMD_TIMEOUT
             self._ser_thread.write(cmd_line.encode())
             self._callBack(ON_CMD_SENT, cmd = cmd)
         except Exception as e:
