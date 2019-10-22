@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 from enum import Enum
+from globals import __MAIN_LOOP_DELAY__
 import loggingwrapper as log
 import atprotocol
 import aoperator
@@ -14,7 +15,8 @@ class Stage(Enum):
     ANSWERED = 5
     ENDINGCALL = 6
 
-TICKS_BETWEEN_TEST = 10000 #100 # при 0.1 секунде задержки получаем ~ 30 сек
+# задержка между тестами ствязи (AT)
+TICKS_BETWEEN_TEST = int(60 / __MAIN_LOOP_DELAY__) # 60 сек. выполняется тольк в состоянии IDLE
 
 # получает сообщения от устройства связи и обрабатывает их управляя экземляром класс Operator 
 class OperatorDispatcher:
@@ -22,27 +24,21 @@ class OperatorDispatcher:
     def __init__(self, config):
         self._config = config
         
+        self._prev_stage = None
         self._stage = Stage.IDLE
         
         self._caller_number = None
         
         self._operator = None
-        # устанавливается на некое значение и уменьшается с каждым вызовом tick
-        # если доходит до нуля, то команда считается не выполненной по таймауту
-        self._cmd_result_timeout = None
         
         self._ticks_from_last_test = 0
         
     def _set_stage(self, stage):
+        self._prev_stage = self._stage
         self._stage = stage
-        # сброс таймаута
-        self._cmd_result_timeout = None
         
     def _get_stage(self):
         return self._stage
-        
-    def _init_operator(self):
-        pass
         
     def initProtocol(self, protocol):
         # установка событий
@@ -62,43 +58,32 @@ class OperatorDispatcher:
         #print(self._ticks_from_last_test)
         self._ticks_from_last_test += 1
         
-        if not self._cmd_result_timeout == None:
-            self._cmd_result_timeout -= 1
-
         # вызывается из главного цикла каждую итерацию для мониторинга таймаутов
         if self._stage == Stage.IDLE:
             if self._ticks_from_last_test >= TICKS_BETWEEN_TEST:
                 self._ticks_from_last_test = 0
                 self._set_stage(Stage.TEST)
-                self._cmd_result_timeout = 200
                 self._protocol.cmdTest()
-            return
-            
-        elif self._stage == Stage.TEST:
-            # идет тестирование связи
-            if self._cmd_result_timeout <= 0:
-                pass
-        
-    # def processMessage(self, msg):
-        # log.debug("process message {}".format(msg))
-        # self._protocol.processMessage(msg)
     
     def on_cmd_sent(self, cmd):
         log.debug("command {} sent".format(cmd))
     
     def on_cmd_result(self, cmd, result, test_result):
         log.debug("recieved result of {} with {}".format(cmd, result))
-
+        
+        # если состояние тестирования
         if self._stage == Stage.TEST:
             if result:
                 # тест прошел успешно
-                #self._ticks_from_last_test = 0
-                self._set_stage(Stage.IDLE)
+                log.debug("TEST OK")
             else:
                 # ошибка проверки связи
                 # raise ATConnectionLostError("no connection")
-                pass
-                
+                log.error("TEST command return not OK")
+            # возврат в состояние ожидания
+            self._set_stage(Stage.IDLE)
+
+        # если состояние ответа на входящий вызов        
         elif self._stage == Stage.ANSWER:
             if result:
                 # вызов успешно принят
@@ -114,7 +99,8 @@ class OperatorDispatcher:
                 # ждем нового гудка для повтора ответа
                 self._operator = None
                 self._set_stage(Stage.IDLE)
-        
+                
+        # если состояние завершение вызова
         elif self._stage == Stage.ENDINGCALL:
             if result:
                 # завершили вызов
@@ -122,10 +108,11 @@ class OperatorDispatcher:
                 self._operator = None
                 
             else:
+                # ошибка команды завершения вызова - повтор команды
                 self._protocol.cmdEndCall()
     
     def on_cmd_timeout(self, cmd):
-        pass
+        log.error("command '{}' timed out")
         
     def on_incoming_call(self):
         log.debug("incoming call")
@@ -143,17 +130,15 @@ class OperatorDispatcher:
             # создаем оператора
             self._operator = aoperator.Operator(self._config, number)
             # получем информацию о звонящем из бд
-            if not self._operator.fetchCallerInfo():
-                pass
-                # # не удается получить информацию о звонящем
-                # # воспроизводим сообщение об ошибке и завершаем звонок
-                # self._operator.speakError()
-                # self._set_stage(Stage.ENDINGCALL)
-                # self._protocol.cmdEndCall()
+            self._operator.fetchCallerInfo()
             # переходим на этам ответа на звонок
             self._set_stage(Stage.ANSWER)
             self._protocol.cmdAnswerCall()
-        
+            
+        else:
+            log.error("unexpected event on stage '{}'! Dropped to IDLE.".format(self._stage._name_))
+            self._set_stage(Stage.IDLE)
+            
     def on_DTMF_recieved(self, symbol):
         log.debug("DTMF sybol recieved {}".format(symbol))
         

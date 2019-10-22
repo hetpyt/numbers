@@ -79,15 +79,25 @@ MSG_DTMF_RECIEVED = "+DTMF"
 # конец строки
 END_LINE = "\r"
 # события
+# возникает каждые __MAIN_LOOP_DELAY__ секунд
 ON_TICK = 0
+# возникает после отправки команды на устройство
 ON_CMD_SENT = 1
+# возникает при получении результата выполнения команды (OK, ERROR, etc)
 ON_CMD_RESULT = 2
+# возникает при получении от устройства сообщения о входящем вызове (RING)
 ON_INCOMING_CALL = 3
+# возникает при завершении вызова на той стороне (NO CARIER)
 ON_END_CALL = 4
+# возникает при получении сообщения определителя номера (+CLIP)
 ON_CALLER_NUMBER_RECIEVED = 5
+# возникает при получении сообщения содержащего код DTMF (+DTMF)
 ON_DTMF_RECIEVED = 6
+# возникает при истечении времени ожидания результата команды (CMD_TIMEOUT)
 ON_CMD_TIMEOUT = 19
+# возникает при получении неизвестного незатребованного сообщения от устройства
 ON_UNKNOWN_MSG = 20
+# кортеж событий (содержит все события, которым можно назначить обработчик)
 ACTIONS = (ON_TICK, ON_CMD_SENT, ON_CMD_RESULT, ON_INCOMING_CALL, ON_END_CALL, ON_CALLER_NUMBER_RECIEVED, ON_DTMF_RECIEVED, ON_CMD_TIMEOUT, ON_UNKNOWN_MSG)
 
 class ATProtocol:
@@ -101,7 +111,7 @@ class ATProtocol:
         self._last_cmd = None
         # ответ последней посланной команды (сохраняется до получения результата и потом отправляется)
         # принимает значения истина или ложь
-        self._last_cmd_test = None
+        self._last_test_result = None
         #
         self._last_cmd_timeout = None
         # события
@@ -119,7 +129,7 @@ class ATProtocol:
         if self._last_cmd:
             self._last_cmd_timeout -= 1
             if self._last_cmd_timeout <= 0:
-                self._last_cmd_timeout = None
+                self._clear_cmd_timeout()
                 self._callBack(ON_CMD_TIMEOUT, cmd = self._get_last_cmd(True))
 
         # проверяем нить ридера
@@ -136,11 +146,12 @@ class ATProtocol:
             
         self._callBack(ON_TICK)
     
+    def _set_cmd_timeout(self, ticks):
+        self._last_cmd_timeout = ticks
+    
     def _clear_last_cmd(self):
         self._last_cmd = None
-        
-    def _clear_last_cmd_test(self):
-        self._last_cmd_test = None
+        self._last_cmd_timeout = None
         
     def _set_last_cmd(self, cmd):
         self._last_cmd = cmd
@@ -151,14 +162,17 @@ class ATProtocol:
             self._clear_last_cmd()
         return res
         
-    def _get_last_cmd_test(self, clear = False):
-        res = self._last_cmd_test
-        if clear:
-            self._clear_last_cmd_test()
-        return res
+    def _clear_last_test_result(self):
+        self._last_test_result = None
+        
+    def _set_last_test_result(self, res):
+        self._last_test_result = res
     
-    def _resend_cmd(self):
-        self.sendCmd(_get_last_cmd())
+    def _get_last_test_result(self, clear = False):
+        res = self._last_test_result
+        if clear:
+            self._clear_last_test_result()
+        return res
     
     def _callBack(self, action, *args, **kwargs):
         if self._actions[action]:
@@ -185,12 +199,12 @@ class ATProtocol:
                 # результат выполнения команды
                 is_ok = (head == COMMANDS[lc]["RESULT"]["SUCCESS"])
                 # вызываем событие при этом забываем последнюю команду
-                self._callBack(ON_CMD_RESULT, cmd = self._get_last_cmd(True), result = is_ok, test_result = self._get_last_cmd_test(True))
+                self._callBack(ON_CMD_RESULT, cmd = self._get_last_cmd(True), result = is_ok, test_result = self._get_last_test_result(True))
 
             elif "RESPONSE" in COMMANDS[lc] and head == COMMANDS[lc]["RESPONSE"]["HEAD"]:
                 # команда возращает ответ
                 try:
-                    self._last_cmd_test = (args[COMMANDS[lc]["RESPONSE"]["PARAMS"].index(COMMANDS[lc]["TEST"]["PARAM"])] == COMMANDS[lc]["TEST"]["VALUE"])
+                    self._set_last_test_result(args[COMMANDS[lc]["RESPONSE"]["PARAMS"].index(COMMANDS[lc]["TEST"]["PARAM"])] == COMMANDS[lc]["TEST"]["VALUE"])
                 except IndexError as e:
                     raise Exception("unexpected params count returned by command {}".format(lc))
             else:
@@ -216,14 +230,22 @@ class ATProtocol:
     def sendCmd(self, cmd):
         try:
             if not cmd:
-                raise Exception('empty command')
+                raise Exception("empty command")
+            if not cmd in COMMANDS:
+                raise Exception("not supported command")
             cmd_line = COMMANDS[cmd]["CMD"] + END_LINE
-            self._last_cmd_timeout = CMD_TIMEOUT
+            self._set_cmd_timeout(CMD_TIMEOUT)
             self._ser_thread.write(cmd_line.encode())
             self._callBack(ON_CMD_SENT, cmd = cmd)
         except Exception as e:
             raise Exception("can't send command '{}' to device".format(cmd)) from e
-    
+            
+    def resendCmd(self):
+        lc = self._get_last_cmd()
+        if lc:
+            sendCmd(lc)
+            
+        
     def cmdTest(self):
         cmd = "TEST"
         self.sendCmd(cmd)
