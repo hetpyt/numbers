@@ -11,6 +11,7 @@ class State(Enum):
     IDLE = 0
     GREETING = 1
     ACC_SELECTION = 2
+    NO_ACCOUNT = 3
     WAIT_FOR_NUMBER = 10
     WAIT_FOR_DECISION = 11
     READY_FOR_HANGOFF = 20
@@ -24,6 +25,7 @@ class Operator(AbstractStateMachine):
         # параметры объекта
         self._caller_number = caller_number
         self._accounts = {}
+        self._accounts_iter = None
         self._current_acc = None
         self._current_meter = None
         self._personal_greeting_message = None
@@ -37,7 +39,17 @@ class Operator(AbstractStateMachine):
         self._speaker = SoundSpeaker(config["sp_resource_path"])
         self._greeting_message = config["sp_greeting_message"]
         self._error_message = config["sp_error_message"]
-    
+        self._noacc_message = config["sp_noacc_message"]
+        self._acc_selection1 = config["sp_acc_selection1"]
+        self._acc_selection2 = config["sp_acc_selection2"]
+        self._mtr_question1 = config["sp_mtr_question1"]
+        self._mtr_question2 = config["sp_mtr_question2"]
+        self._mtr_question3 = config["sp_mtr_question3"]
+        self._mtr_newvalue = config["sp_mtr_newvalue"]
+        self._mtr_confirmation1 = config["sp_mtr_confirmation1"]
+        self._mtr_confirmation2 = config["sp_mtr_confirmation2"]
+        self._farewell_message = config["sp_farewell_message"]
+        
     def _trim_acc_number(self, acc_num):
         n = 0
         while n < len(acc_num):
@@ -45,6 +57,13 @@ class Operator(AbstractStateMachine):
                 break
             n += 1
         return acc_num[n:]
+    
+    def _convert_number(self, num, mode = 0):
+        if mode:
+            return self._speaker.convert_by_groups(self._trim_acc_number(num), 3)
+        else:
+            return self._speaker.convert(num)
+            
         
     def _speak_error(self):
         # произносит стандратное сообщение об ошибке. блокирует основной цикл
@@ -69,6 +88,27 @@ class Operator(AbstractStateMachine):
             # была ошибка бд - не можем дальше продолжать обработку звонка
             self._speak_error()
             self._set_state(State.READY_FOR_HANGOFF)
+    
+    def _accselection(self):
+        acc_cnt = len(self._accounts)
+        if acc_cnt == 0:
+            # нет ни одного лс
+            self._set_state(State.NO_ACCOUNT)
+            self._begin_speaking([self._noacc_message, self._farewell_message])
+            
+        else if acc_cnt == 1:
+            # только один лс
+            pass
+        else:
+            # более одного лс
+            self._set_state(State.ACC_SELECTION)
+            try:
+                self._current_acc = next(self._accounts_iter)
+                self._begin_speaking([self._acc_selection1, self._convert_number(self._current_acc), self._acc_selection2])
+                
+            except StopIteration as e:
+                self._current_acc = None
+                
             
     def _begin_speaking(self, sound, critical = True):
         snd = sound
@@ -99,10 +139,12 @@ class Operator(AbstractStateMachine):
             # ничего не говорим можно "делать вещи"
             if self._get_state() == State.GREETING:
                 # с этапа приветствия переходим к этапу выбора лс - если их несколько
+                self._accselection()
                 
+            elif self._get_state() == State.NO_ACCOUNT:
+                # проговорили сообщение об отсутсвии лс и попрощались 
+                self._set_state(State.READY_FOR_HANGOFF)
             
-        
-
     def stopSpeaking(self):
         self._speaker.stopAll()
         
@@ -170,7 +212,8 @@ class Operator(AbstractStateMachine):
             self._personal_greeting_f = item["greeting_f"]
             log.debug('data:{}'.format(item))
         
-        log.debug("collectes accounts : {}".format(list(self._accounts.keys())))
+        self._accounts_iter = iter(self._accounts)
+        log.debug("collected accounts : {}".format(list(self._accounts.keys())))
         return True
         
     
