@@ -146,6 +146,9 @@ class ATProtocol:
             
         self._callBack(ON_TICK)
     
+    def _clear_cmd_timeout(self):
+        self._last_cmd_timeout = None
+    
     def _set_cmd_timeout(self, ticks):
         self._last_cmd_timeout = ticks
     

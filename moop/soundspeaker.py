@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import os
-#import simpleaudio as SA
 import wave
+from globals import __NO_SOUND__
+if not __NO_SOUND__:
+    import simpleaudio as SA
+else:
+    import nosound as SA
 import loggingwrapper as log
 from numberspeaker import NumberSpeaker
 
@@ -96,18 +100,19 @@ class SoundSpeaker(NumberSpeaker):
                         fr = wr.getframerate()
                     data = data + wr.readframes(wr.getnframes())
             except FileNotFoundError as e:
-                #raise Exception("Can't open resource file.") from e
-                log.error("file not found '{}'".format(res_name))
-                return False
+                raise Exception("Can't open resource file.") from e
+                # log.error("file not found '{}'".format(res_name))
+                # return False
             except wave.Error as e:
-                #raise Exception"Resource file is not valid wave file.") from e
-                log.error("Resource file '{}' is not valid wave file.".format(res_name))
-                return False
-        #self._play_obj = SA.play_buffer(data, nc, bps, fr)
-        #self._play_obj.wait_done()
-        return True
+                raise Exception("Resource file is not valid wave file.") from e
+                # log.error("Resource file '{}' is not valid wave file.".format(res_name))
+                # return False
+        try:
+            self._play_obj = SA.play_buffer(data, nc, bps, fr)
+        except Exception as e:
+            raise Exception("can't play sound") from e
     
-    def speakAndWait(self, sequence)
+    def speakAndWait(self, sequence):
         self.speak(sequence)
         if self.isSpeaking():
             self._play_obj.wait_done()
