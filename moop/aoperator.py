@@ -170,7 +170,7 @@ class Operator(AbstractStateMachine):
             self._personal_greeting_f = item["greeting_f"]
             log.debug('data:{}'.format(item))
         
-        log.debug("collectes accounts : {}".format(self._accounts.))
+        log.debug("collectes accounts : {}".format(list(self._accounts.keys())))
         return True
         
     
