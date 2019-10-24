@@ -8,6 +8,9 @@ class AbstractStateMachine:
         self._prev_state = None
         
     def _set_state(self, state):
+        if self._state == state:
+            # если новое состояние равно текущему, то ничего не делаем
+            return
         self._prev_state = self._state
         self._state = state
         

@@ -1,19 +1,35 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 from enum import Enum
+from datetime import datetime
 import mysql.connector as sql
 from mysql.connector.errors import Error as SQLError
 from statemachine import AbstractStateMachine
 from soundspeaker import SoundSpeaker
 import loggingwrapper as log
 
+SYM_CONFIRM = '*'
+SYM_CANCEL = '#'
+
+# имена ключевых полей бд
+DB_MTR_INDEX = "index_num"
+DB_MTR_UPD_DATE_NEW = "updated"
+DB_MTR_UPD_DATE_CUR = "updated_from_db"
+DB_MTR_COUNT_NEW = "count"
+DB_MTR_COUNT_CUR = "count_from_db"
+
+
+
 class State(Enum):
     IDLE = 0
     GREETING = 1
     ACC_SELECTION = 2
     NO_ACCOUNT = 3
-    WAIT_FOR_NUMBER = 10
-    WAIT_FOR_DECISION = 11
+    METER_SELECTION = 4
+    NUMBER_INPUT = 10
+    ACC_CONFIRMATION = 11
+    DATA_CONFIRMED = 18
+    DATA_STORED = 19
     READY_FOR_HANGOFF = 20
 
 # создается при получении входящего звонка, отвечает за логику приема данных от абонента
@@ -22,12 +38,21 @@ class Operator(AbstractStateMachine):
         super(Operator, self).__init__(State.IDLE)
         # флаг ошибки базы данных
         self._db_error = False
+        
+        self._number_input = ''
+        
         # параметры объекта
         self._caller_number = caller_number
+        
         self._accounts = {}
         self._accounts_iter = None
+        self._accounts_alldone = False
         self._current_acc = None
+        
+        self._meter_iter = None
+        self._meter_alldone = False
         self._current_meter = None
+        
         self._personal_greeting_message = None
         # параметры подключения к бд
         self._db_host = config["db_server"]
@@ -63,8 +88,48 @@ class Operator(AbstractStateMachine):
             return self._speaker.convert_by_groups(self._trim_acc_number(num), 3)
         else:
             return self._speaker.convert(num)
-            
+    
+    def _number_input_add(self, symbol):
+        if symbol.isdecimal():
+            self._number_input += symbol
+    
+    def _number_input_reset(self):
+        self._number_input = ''
+    
+    def _number_input_exists(self):
+        return bool(self._number_input)
+    
+    # вызывается после подтверждения ввода числа абонентом и сохраняет введенное значение
+    # в качестве новых показаний. 
+    def _number_input_confirm(self):
+        nv = self._current_meter[DB_MTR_COUNT_CUR]
+        if self._number_input
+            nv = int(self._number_input)
+        self._current_meter[DB_MTR_COUNT_NEW] = nv
+        self._current_meter["__data_changed__"] = True
+        # сброс ввода
+        self._number_input_reset()
         
+    def _next_account(self):
+        try:
+            self._current_acc = next(self._accounts_iter)
+            
+        except StopIteration as e:
+            self._current_acc = None
+            self._accounts_alldone = True
+        
+        return  not self._accounts_alldone
+    
+    def _next_meter(self):
+        try:
+            self._current_meter = next(self._meter_iter)
+            
+        except StopIteration as e:
+            self._current_meter = None
+            self._meter_alldone = True
+        
+        return  not self._meter_alldone
+    
     def _speak_error(self):
         # произносит стандратное сообщение об ошибке. блокирует основной цикл
         try:
@@ -89,7 +154,35 @@ class Operator(AbstractStateMachine):
             self._speak_error()
             self._set_state(State.READY_FOR_HANGOFF)
     
-    def _accselection(self):
+    def _begin_number_input(self):
+        self._number_input_reset()
+        self._set_state(State.NUMBER_INPUT)
+        self._begin_speaking([self._mtr_newvalue,
+                            self._convert_number(self._current_meter[DB_MTR_INDEX])])
+
+    
+    def _meter_selection(self):
+        self._set_state(State.METER_SELECTION)
+        if self._next_meter():
+            self._begin_speaking([self._mtr_question1,
+                                        self._convert_number(self._current_meter[DB_MTR_INDEX]),
+                                        self._mtr_question2,
+                                        self._convert_number(self._current_meter[DB_MTR_COUNT_CUR]),
+                                        self._mtr_question3])
+        else:
+            # счетчики кончились
+            # диктуем что навводил абонент и спрашиваем подтверждение
+            self._set_state(State.ACC_CONFIRMATION)
+            # сформируем последовательность для воспроизведения
+            ps = []
+            for mtr in self._accounts[self._current_acc]:
+                ps.append(self._mtr_confirmation1)
+                ps += self._convert_number(self._current_meter[DB_MTR_INDEX])
+            ps.append(self._mtr_confirmation2)
+            self._begin_speaking(ps)
+
+    
+    def _acc_selection(self):
         acc_cnt = len(self._accounts)
         if acc_cnt == 0:
             # нет ни одного лс
@@ -97,23 +190,33 @@ class Operator(AbstractStateMachine):
             self._begin_speaking([self._noacc_message, self._farewell_message])
             
         else if acc_cnt == 1:
-            # только один лс
-            pass
+            # только один лс - пропускаем выбор лс
+            self._next_account()
+            _meter_selection()
+            
         else:
             # более одного лс
             self._set_state(State.ACC_SELECTION)
-            try:
-                self._current_acc = next(self._accounts_iter)
-                self._begin_speaking([self._acc_selection1, self._convert_number(self._current_acc), self._acc_selection2])
-                
-            except StopIteration as e:
-                self._current_acc = None
-                
+            if self._next_account():
+                # есть еще лс
+                self._begin_speaking([self._acc_selection1, 
+                                        self._convert_number(self._current_acc, 1), 
+                                        self._acc_selection2])
+            else:
+                # лс больше нету - проверяем 
+                pass
             
     def _begin_speaking(self, sound, critical = True):
-        snd = sound
         if not isinstance(sound, list) and not isinstance(sound, tuple):
             snd = [sound]
+        else:
+            snd = []
+            for item in sound:
+                if isinstance(item, list) or isinstance(item, tuple):
+                    snd += list(item)
+                else
+                    snd.append(item)
+            
         try:
             self._speaker.speak(snd)
         except Exception as e:
@@ -133,13 +236,23 @@ class Operator(AbstractStateMachine):
     def isReadyForHangoff(self):
         return (self._get_state() == State.READY_FOR_HANGOFF)
 
+    # вызывается диспетчером когда вызов завершается с той строны
+    def onCallEnded(self):
+        # если мы не получили окончательного подтверждения от абонента о корректности введенных
+        # им данных, то можем смело завершать работу оператора
+        if self._get_state() == State.DATA_CONFIRMED:
+            pass
+            
+        else:
+            self._set_state(State.READY_FOR_HANGOFF)
+        
+    # вызывается диспетчером каждый цикл
     def tick(self):
-        # вызывается диспетчером каждый цикл
         if not self._is_speaking():
             # ничего не говорим можно "делать вещи"
             if self._get_state() == State.GREETING:
                 # с этапа приветствия переходим к этапу выбора лс - если их несколько
-                self._accselection()
+                self._acc_selection()
                 
             elif self._get_state() == State.NO_ACCOUNT:
                 # проговорили сообщение об отсутсвии лс и попрощались 
@@ -148,20 +261,89 @@ class Operator(AbstractStateMachine):
     def stopSpeaking(self):
         self._speaker.stopAll()
         
+    # вызывается диспетчером для передачи символа от абонента
     def processSymbol(self, symbol):
-        # вызывается диспетчером для передачи символа от абонента
-        if self._get_state() == State.GREETING:
-            # получен символ во время приветствия
-            # прерываем приветствие и продолжаем
-            self._stop_speaking()
+        # ввод символа абонентом всегда прерывает воспроизведение звука
+        self._stop_speaking()
+        st = self._get_state()
+        if st == State.ACC_SELECTION:
+            # выбор аккаунта
+            if symbol == SYM_CONFIRM:
+                # выбор лс подтвержден - переходим к выбору счетчика
+                self._meter_selection()
+                
+            elif symbol == SYM_CANCEL:
+                # выбор лс не подтвержден - переходим к следующему лс, если есть
+                self._acc_selection()
+                
+            else:
+                # введен левый символ - игнорим
+                pass
+        
+        elif st == State.METER_SELECTION:
+            # выбор счетчика
+            if symbol == SYM_CONFIRM:
+                # выбор счетчика подтвержден - переходим к вводу числа
+                self._begin_number_input()
+                
+            elif symbol == SYM_CANCEL:
+                # выбор счетчика не подтвержден - переходим к следующему счетчику
+                self._meter_selection()
+                
+            else:
+                # введен левый символ - игнорим
+                pass
+                
+        elif st == State.NUMBER_INPUT:
+            # ввод числа - показаний
+            if symbol == SYM_CONFIRM:
+                # ввод числа окончен и подтвержден
+                # сохраняем введенное значение в качестве новых показаний по текущему счетчику
+                _number_input_confirm()
+                # возвращаемся к выбору счетчика
+                self._meter_selection()
+                
+            elif symbol == SYM_CANCEL:
+                # ввод числа окончен и подтвержден
+                if self._number_input_exists():
+                    # если были введены символы, то считаем что абонент желает ввести поновой (например в случае ошибки)
+                    self._begin_number_input()
+                    
+                else:
+                    # не было ввода символов - переходим к следующему счетчику
+                    self._number_input_confirm()
+                    self._meter_selection()
+                
+            else:
+                # введен символ числа - проверим
+                self._number_input_add(symbol)
+        
+        elif st == State.ACC_CONFIRMATION:
+            # подтверждение ввода показаний
+            if symbol == SYM_CONFIRM:
+                # ввод подтвержден - сохраняем в бд
+                pass
+                
+            elif symbol == SYM_CANCEL:
+                # ввод отклонен
+                pass
+                
+            else:
+                # введен левый символ - игнорим
+                pass
 
     def beginCallProcessing(self):
         # заупск машины состояний оператора на обработку алгоритма приема показаний
         self._set_state(State.GREETING)
         self._greeting()
 
-    def fetchCallerInfo(self):
+    def _db_connect(self):
         conn = None
+        
+        if not sql.paramstyle == 'pyformat':
+            log.error('sql paramstyle = "{}" not supported.'.format(sql.paramstyle))
+            return conn
+            
         tryes = 3
         while tryes > 0:
             try:
@@ -177,43 +359,104 @@ class Operator(AbstractStateMachine):
             except SQLError as e:
                 tryes -= 1
                 log.exception("can't connect to database server")
+                
+        return conn
+
+    def fetchCallerInfo(self):
+        
+        conn = self._db_connect()
         
         if not conn:
             self._db_error = True
-            return False
+            return
         
         cursor = conn.cursor(dictionary = True)
-        request_text = "SELECT `clients`.`id` AS `client_id`,\
-            `clients`.`account`,\
-            `clients`.`phone_number`,\
-            `clients`.`registration_date`,\
-            `meters`.`id` AS `meter_id`,\
-            `meters`.`updated`,\
-            `meters`.`updated_from_db`,\
-            `meters`.`count`,\
-            `meters`.`count_from_db`,\
-            `pers_set`.`greeting_f`\
-            FROM `clients` \
-            INNER JOIN `meters` ON `meters`.`owner_id` = `clients`.`id` AND `clients`.`phone_number`='{}'\
-            LEFT JOIN `pers_set` ON `pers_set`.`phone_number`='{}'".format(self._caller_number, self._caller_number)
+        request_text = """SELECT 
+            `clients`.`id` AS `client_id`,
+            `clients`.`account`,
+            `clients`.`phone_number`,
+            `clients`.`registration_date`,
+            `meters`.`id` AS `meter_id`,
+            `meters`.`index_num`,
+            `meters`.`updated`,
+            `meters`.`updated_from_db`,
+            `meters`.`count`,
+            `meters`.`count_from_db`,
+            `pers_set`.`greeting_f`
+            FROM `clients` 
+            INNER JOIN `meters` ON `meters`.`owner_id` = `clients`.`id` AND `clients`.`phone_number`=%(phone)s
+            LEFT JOIN `pers_set` ON `pers_set`.`phone_number`=%(phone)s"""
             
         try:
-            cursor.execute(request_text)
+            cursor.execute(request_text, {'phone' : self._caller_number})
+            
+            for item in cursor.fetchall():
+                acc = item["account"]
+                
+                if not acc in self._accounts:
+                    self._accounts[acc] = []
+                    
+                mtr = item.copy()
+                # служебное поле обозначающее что переданные данные подтвержденмы абонентом
+                mtr["__data_confirmed__"] = False
+                # служебное поле обозначающее что по данной строке были изменения со стороны абонента
+                mtr["__data_changed__"] = False
+                self._accounts[acc].append(mtr)
+                self._personal_greeting_f = item["greeting_f"]
+                
         except SQLError as e:
             self._db_error = True
-            log.exception("can't fetch dsta from database")
-            return False
-
-        for item in cursor.fetchall():
-            acc = item["account"]
-            if not acc in self._accounts:
-                self._accounts[acc] = []
-            self._accounts[acc].append(item.copy())
-            self._personal_greeting_f = item["greeting_f"]
-            log.debug('data:{}'.format(item))
-        
+            log.exception("can't fetch data from database")
+            
+        finally:
+            cursor.close()
+            conn.close()
+            
+        # определение функции для извлечения ключа сортировки
+        def sf(item):
+            return item["index_num"]
+            
+        # сортировка по номеру в УС
+        for acc in self._accounts:
+            self._accounts[acc].sort(key = sf)
+            
+        # инициализация итератора для обхода лицевых счетов
         self._accounts_iter = iter(self._accounts)
-        log.debug("collected accounts : {}".format(list(self._accounts.keys())))
-        return True
         
+        log.debug("collected accounts : {}".format(list(self._accounts.keys())))
     
+    def storeData(self):
+        conn = self._db_connect()
+        need_commit = False
+        
+        if not conn:
+            self._db_error = True
+            return
+        
+        request_test = """UPDATE `meters` 
+            SET `updated` = %(date)s, 
+            `count` = %(count)s 
+            WHERE `meters`.`id` = %(meter_id)s"""
+            
+        try:
+            for acc in self._accounts:
+                # цикл по ЛС
+                for meter in self._accounts[acc]:
+                    # цикл по счетчикам
+                    #if meter["__data_confirmed__"]:
+                    cur.execute(request_test, {'date' : datetime.now(), 'count' : meter["count"], 'meter_id' : meter["meter_id"]})
+                    log.debug("update row in 'meters' with id '{}'".format(meter["meter_id"]))
+                    need_commit = True
+                        
+            if need_commit:
+                conn.commit()
+                
+        except SQLError as e:
+            self._db_error = True
+            log.exception("can't update data into database")
+            
+        finally:
+            cursor.close()
+            conn.close()
+        
+            

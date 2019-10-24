@@ -36,14 +36,11 @@ class OperatorDispatcher(AbstractStateMachine):
         self._operator = None
         
         self._ticks_from_last_test = 0
-        
-    # def _set_state(self, state):
-        # self._prev_state = self._state
-        # self._state = state
-        
-    # def _get_state(self):
-        # return self._state
-        
+     
+    def _end_call(self):
+        self._set_state(State.ENDINGCALL)
+        self._protocol.cmdEndCall()
+     
     def initProtocol(self, protocol):
         # установка событий
         protocol.setAction(atprotocol.ON_TICK, self.on_tick)
@@ -70,7 +67,11 @@ class OperatorDispatcher(AbstractStateMachine):
                 self._protocol.cmdTest()
                 
         if self._operator:
+            # если есть оператор то дергаем его
             self._operator.tick()
+            if self._operator.isReadyForHangoff():
+                # оператор готов завершить звонок
+                self._end_call()
     
     def on_cmd_sent(self, cmd):
         log.debug("command {} sent".format(cmd))
@@ -97,11 +98,11 @@ class OperatorDispatcher(AbstractStateMachine):
                 self._set_state(State.ANSWERED)
                 # начало обработки звонка оператором
                 self._operator.beginCallProcessing()
-                # проверяем готовность к завершению вызова
-                if self._operator.isReadyForHangoff():
-                    # завершаем вызов
-                    self._set_state(State.ENDINGCALL)
-                    self._protocol.cmdEndCall()
+                # проверяем готовность в on_tick
+                # # проверяем готовность к завершению вызова
+                # if self._operator.isReadyForHangoff():
+                    # # завершаем вызов
+                    # self._end_call()
             else:
                 # ждем нового гудка для повтора ответа
                 self._operator = None
@@ -125,9 +126,17 @@ class OperatorDispatcher(AbstractStateMachine):
         log.debug("incoming call")
         if self._get_state() == State.IDLE:
             self._set_state(State.RINGING)
-        
+    
+    # событие при окончании вызова с той стороны
     def on_end_call(self):
-        log.debug("call ended")
+        if self._get_state() in (State.ANSWERED, State.ANSWER, State.RINGING):
+            log.debug("call is ended on the other side")
+            # нужно известить оператора о том что вызов завершен
+            self._operator.onCallEnded()
+        else:
+            log.error("unexpected event on state '{}'! Dropped to IDLE.".format(self._get_state()._name_))
+            self._set_def_state()
+        
         
     def on_caller_number_recieved(self, number):
         log.debug("caller number recieved {}".format(number))
