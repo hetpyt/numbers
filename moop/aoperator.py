@@ -470,6 +470,7 @@ class Operator(AbstractStateMachine):
             self._db_error = True
             return
         
+        cursor = conn.cursor(dictionary = True)
         request_test = """UPDATE `meters` 
             SET `updated` = %(date)s, 
             `count` = %(count)s 
@@ -481,7 +482,7 @@ class Operator(AbstractStateMachine):
                 for meter in self._accounts[acc]:
                     # цикл по счетчикам
                     #if meter["__data_confirmed__"]:
-                    cur.execute(request_test, {'date' : datetime.now(), 'count' : meter["count"], 'meter_id' : meter["meter_id"]})
+                    cursor.execute(request_test, {'date' : datetime.now(), 'count' : meter["count"], 'meter_id' : meter["meter_id"]})
                     log.debug("update row in 'meters' with id '{}'".format(meter["meter_id"]))
                     need_commit = True
                         
