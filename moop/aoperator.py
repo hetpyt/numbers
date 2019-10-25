@@ -5,8 +5,15 @@ from datetime import datetime
 import mysql.connector as sql
 from mysql.connector.errors import Error as SQLError
 from statemachine import AbstractStateMachine
-from soundspeaker import SoundSpeaker
 import loggingwrapper as log
+
+try:
+    import simpleaudio
+    simpleaudio = None
+    from soundspeaker import SoundSpeaker
+except Exception as e:
+    log.debug("can't import SoundSpeaker. use stub.")
+    from soundspeakerstub import SoundSpeaker
 
 SYM_CONFIRM = '*'
 SYM_CANCEL = '#'
@@ -17,8 +24,6 @@ DB_MTR_UPD_DATE_NEW = "updated"
 DB_MTR_UPD_DATE_CUR = "updated_from_db"
 DB_MTR_COUNT_NEW = "count"
 DB_MTR_COUNT_CUR = "count_from_db"
-
-
 
 class State(Enum):
     IDLE = 0
@@ -73,6 +78,7 @@ class Operator(AbstractStateMachine):
         self._mtr_newvalue = config["sp_mtr_newvalue"]
         self._mtr_confirmation1 = config["sp_mtr_confirmation1"]
         self._mtr_confirmation2 = config["sp_mtr_confirmation2"]
+        self._mtr_confirmation3 = config["sp_mtr_confirmation3"]
         self._farewell_message = config["sp_farewell_message"]
         
     def _trim_acc_number(self, acc_num):
@@ -103,16 +109,22 @@ class Operator(AbstractStateMachine):
     # в качестве новых показаний. 
     def _number_input_confirm(self):
         nv = self._current_meter[DB_MTR_COUNT_CUR]
-        if self._number_input
+        if self._number_input:
             nv = int(self._number_input)
         self._current_meter[DB_MTR_COUNT_NEW] = nv
         self._current_meter["__data_changed__"] = True
         # сброс ввода
         self._number_input_reset()
-        
+    
+    def _reset_meter_iter(self):
+        self._meter_iter = iter(self._accounts[self._current_acc])
+    
     def _next_account(self):
         try:
+            # получаем следующий лс из итератора
             self._current_acc = next(self._accounts_iter)
+            # инициализируем итератор счетчиков
+            self._reset_meter_iter()
             
         except StopIteration as e:
             self._current_acc = None
@@ -131,14 +143,16 @@ class Operator(AbstractStateMachine):
         return  not self._meter_alldone
     
     def _speak_error(self):
-        # произносит стандратное сообщение об ошибке. блокирует основной цикл
+        # произносит стандратное сообщение об ошибке.
+        self._set_state(State.READY_FOR_HANGOFF)
         try:
-            self._speaker.speakAndWait([self._error_message])
+            #self._speaker.speakAndWait([self._error_message])
+            self._begin_speaking([self._error_message])
         except Exception as e:
             log.exception("can't speak error sound sequence")
-        
+            
+    # приветствие. вызывается после приема входящего вызова
     def _greeting(self):
-        # приветствие. вызывается после приема входящего вызова
         if not self._db_error:
             # нет ошибок бд - можно продолжать обработку звонка
             if self._personal_greeting_message:
@@ -148,12 +162,17 @@ class Operator(AbstractStateMachine):
                     self._begin_speaking(self._greeting_message)
             else:
                 # персональное приветствие не задано - воспроизводим стандартное
-                self._speaker.speak(self._greeting_message)
+                self._begin_speaking(self._greeting_message)
         else:
             # была ошибка бд - не можем дальше продолжать обработку звонка
             self._speak_error()
-            self._set_state(State.READY_FOR_HANGOFF)
-    
+            
+    # прощание - вызывается в конце вызова
+    def _farewell(self):
+        self._set_state(State.READY_FOR_HANGOFF)
+        self._begin_speaking([self._farewell_message])
+        
+    # инициализирует начало ввода последовательности цифр абонентом
     def _begin_number_input(self):
         self._number_input_reset()
         self._set_state(State.NUMBER_INPUT)
@@ -161,9 +180,14 @@ class Operator(AbstractStateMachine):
                             self._convert_number(self._current_meter[DB_MTR_INDEX])])
 
     
-    def _meter_selection(self):
+    def _meter_selection(self, goto_next = True):
         self._set_state(State.METER_SELECTION)
-        if self._next_meter():
+        # если нужно переходить к следующему счетчику
+        if goto_next:
+            self._next_meter()
+        
+        if self._current_meter:
+            # есть текущий счетчик - воспроизводим сообщение 
             self._begin_speaking([self._mtr_question1,
                                         self._convert_number(self._current_meter[DB_MTR_INDEX]),
                                         self._mtr_question2,
@@ -177,33 +201,44 @@ class Operator(AbstractStateMachine):
             ps = []
             for mtr in self._accounts[self._current_acc]:
                 ps.append(self._mtr_confirmation1)
-                ps += self._convert_number(self._current_meter[DB_MTR_INDEX])
-            ps.append(self._mtr_confirmation2)
+                ps += self._convert_number(mtr[DB_MTR_INDEX])
+                ps.append(self._mtr_confirmation2)
+                ps += self._convert_number(mtr[DB_MTR_COUNT_NEW])
+            ps.append(self._mtr_confirmation3)
             self._begin_speaking(ps)
 
     
-    def _acc_selection(self):
+    def _acc_selection(self, goto_next = True):
         acc_cnt = len(self._accounts)
         if acc_cnt == 0:
             # нет ни одного лс
             self._set_state(State.NO_ACCOUNT)
             self._begin_speaking([self._noacc_message, self._farewell_message])
             
-        else if acc_cnt == 1:
+        elif acc_cnt == 1:
             # только один лс - пропускаем выбор лс
-            self._next_account()
-            _meter_selection()
+            if goto_next:
+                self._next_account()
+            else:
+                self._reset_meter_iter()
+            self._meter_selection()
             
         else:
             # более одного лс
             self._set_state(State.ACC_SELECTION)
-            if self._next_account():
+            if goto_next:
+                self._next_account()
+            else:
+                self._reset_meter_iter()
+                
+            if self._current_acc:    
                 # есть еще лс
                 self._begin_speaking([self._acc_selection1, 
                                         self._convert_number(self._current_acc, 1), 
                                         self._acc_selection2])
             else:
-                # лс больше нету - проверяем 
+                # лс больше нету - прощаемся
+                
                 pass
             
     def _begin_speaking(self, sound, critical = True):
@@ -212,10 +247,11 @@ class Operator(AbstractStateMachine):
         else:
             snd = []
             for item in sound:
-                if isinstance(item, list) or isinstance(item, tuple):
-                    snd += list(item)
-                else
-                    snd.append(item)
+                if item:
+                    if isinstance(item, list) or isinstance(item, tuple):
+                        snd += list(item)
+                    else:
+                        snd.append(item)
             
         try:
             self._speaker.speak(snd)
@@ -231,20 +267,16 @@ class Operator(AbstractStateMachine):
         self._speaker.stop()
     
     def _is_speaking(self):
-        return self._speaker.is_playing()
+        return self._speaker.isSpeaking()
         
+    # вызывается диспетчером для проверки готовности оператора завершить вызов   
     def isReadyForHangoff(self):
-        return (self._get_state() == State.READY_FOR_HANGOFF)
+        # возвращает истину если состояние READY_FOR_HANGOFF и не соспроизводится сообщение
+        return (self._get_state() == State.READY_FOR_HANGOFF and not self._is_speaking())
 
     # вызывается диспетчером когда вызов завершается с той строны
     def onCallEnded(self):
-        # если мы не получили окончательного подтверждения от абонента о корректности введенных
-        # им данных, то можем смело завершать работу оператора
-        if self._get_state() == State.DATA_CONFIRMED:
-            pass
-            
-        else:
-            self._set_state(State.READY_FOR_HANGOFF)
+        self._set_state(State.READY_FOR_HANGOFF)
         
     # вызывается диспетчером каждый цикл
     def tick(self):
@@ -299,7 +331,7 @@ class Operator(AbstractStateMachine):
             if symbol == SYM_CONFIRM:
                 # ввод числа окончен и подтвержден
                 # сохраняем введенное значение в качестве новых показаний по текущему счетчику
-                _number_input_confirm()
+                self._number_input_confirm()
                 # возвращаемся к выбору счетчика
                 self._meter_selection()
                 
@@ -322,11 +354,17 @@ class Operator(AbstractStateMachine):
             # подтверждение ввода показаний
             if symbol == SYM_CONFIRM:
                 # ввод подтвержден - сохраняем в бд
-                pass
-                
+                self.storeData()
+                if self._db_error:
+                    # ошибка записи в бд
+                    self._speak_error()
+                else:
+                    # данные записаны успешно - возвращаемся к выбору лс
+                    self._acc_selection()
+                    
             elif symbol == SYM_CANCEL:
-                # ввод отклонен
-                pass
+                # ввод отклонен - возвращаеся к вводу показаний по текущему лс поновой
+                self._acc_selection(False)
                 
             else:
                 # введен левый символ - игнорим

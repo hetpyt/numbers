@@ -15,7 +15,7 @@ SYMBOL_ARG_QUOTE = '"'
 R_OK = "OK"
 R_ERR = "ERROR"
 
-CMD_TIMEOUT = int(30 / __MAIN_LOOP_DELAY__) # 30 sec
+CMD_TIMEOUT = int(120 / __MAIN_LOOP_DELAY__) # 30 sec
 
 
 # команды управления 

@@ -69,7 +69,7 @@ class OperatorDispatcher(AbstractStateMachine):
         if self._operator:
             # если есть оператор то дергаем его
             self._operator.tick()
-            if self._operator.isReadyForHangoff():
+            if self._operator.isReadyForHangoff() and self._get_state() == State.ANSWERED:
                 # оператор готов завершить звонок
                 self._end_call()
     
@@ -120,7 +120,7 @@ class OperatorDispatcher(AbstractStateMachine):
                 self._protocol.cmdEndCall()
     
     def on_cmd_timeout(self, cmd):
-        log.error("command '{}' timed out")
+        log.error("command '{}' timed out".format(cmd))
         
     def on_incoming_call(self):
         log.debug("incoming call")

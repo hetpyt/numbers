@@ -48,8 +48,8 @@ class ConfigReader(dict):
     def _read(self, file_name):
         # открываем файл на чтение
         try: 
-            file = open(file_name, "r", newline = os.linesep)
-            
+            file = open(file_name, "r", encoding='utf-8', newline = os.linesep)
+            #print(file_name)
         except os.OSError as e:
             raise Exception("Can't open config file '{}'".format(_file_name)) from e
             

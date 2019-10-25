@@ -2,11 +2,7 @@
 # -*- coding: utf-8 -*-
 import os
 import wave
-from globals import __NO_SOUND__
-if not __NO_SOUND__:
-    import simpleaudio as SA
-else:
-    import nosound as SA
+import simpleaudio as SA
 import loggingwrapper as log
 from numberspeaker import NumberSpeaker
 
@@ -118,13 +114,13 @@ class SoundSpeaker(NumberSpeaker):
             self._play_obj.wait_done()
     
     def isSpeaking(self):
-        if not self._play_obj == None:
+        if self._play_obj:
             return self._play_obj.is_playing()
         else:
             return False
     
     def stop(self):
-        if self.is_speaking():
+        if self.isSpeaking():
             self._play_obj.stop()
         self._play_obj = None
             

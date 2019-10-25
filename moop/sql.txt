@@ -1,5 +1,0 @@
-
-SELECT `clients`.`id` AS `client_id`, `clients`.`account`, `clients`.`phone_number`, `clients`.`registration_date`, 
-`meters`.`id` AS `meter_id`, `meters`.`updated`, `meters`.`updated_from_db`, `meters`.`count`, `meters`.`count_from_db`, `pers_set`.`greeting_f` FROM `clients` 
-INNER JOIN `meters` ON `meters`.`owner_id` = `clients`.`id` AND `clients`.`phone_number`='+79111234567'
-LEFT JOIN `pers_set` ON `pers_set`.`phone_number`='+79111234567'
