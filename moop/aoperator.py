@@ -214,16 +214,16 @@ class Operator(AbstractStateMachine):
             self._set_state(State.NO_ACCOUNT)
             self._begin_speaking([self._noacc_message, self._farewell_message])
             
-        elif acc_cnt == 1:
-            # только один лс - пропускаем выбор лс
-            if goto_next:
-                self._next_account()
-            else:
-                self._reset_meter_iter()
-            self._meter_selection()
+        # elif acc_cnt == 1:
+            # # только один лс - пропускаем выбор лс
+            # if goto_next:
+                # self._next_account()
+            # else:
+                # self._reset_meter_iter()
+            # self._meter_selection()
             
         else:
-            # более одного лс
+            # более нуля лс
             self._set_state(State.ACC_SELECTION)
             if goto_next:
                 self._next_account()
@@ -232,13 +232,17 @@ class Operator(AbstractStateMachine):
                 
             if self._current_acc:    
                 # есть еще лс
-                self._begin_speaking([self._acc_selection1, 
-                                        self._convert_number(self._current_acc, 1), 
-                                        self._acc_selection2])
+                if acc_cnt == 1:
+                    # сразу переходим к счетчикам
+                    self._meter_selection()
+                else:
+                    # читаем только если более одного лс
+                    self._begin_speaking([self._acc_selection1, 
+                                            self._convert_number(self._current_acc, 1), 
+                                            self._acc_selection2])
             else:
                 # лс больше нету - прощаемся
-                
-                pass
+                self._farewell()
             
     def _begin_speaking(self, sound, critical = True):
         if not isinstance(sound, list) and not isinstance(sound, tuple):
