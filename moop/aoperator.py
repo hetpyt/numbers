@@ -4,16 +4,15 @@ from enum import Enum
 from datetime import datetime
 import mysql.connector as sql
 from mysql.connector.errors import Error as SQLError
+from globals import __NO_SOUND__
 from statemachine import AbstractStateMachine
 import loggingwrapper as log
 
-try:
-    import simpleaudio
-    simpleaudio = None
-    from soundspeaker import SoundSpeaker
-except Exception as e:
-    log.debug("can't import SoundSpeaker. use stub.")
+if __NO_SOUND__:
     from soundspeakerstub import SoundSpeaker
+    log.debug("NO SOUND. used stub.")
+else:
+    from soundspeaker import SoundSpeaker
 
 SYM_CONFIRM = '*'
 SYM_CANCEL = '#'
