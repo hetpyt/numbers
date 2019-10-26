@@ -360,7 +360,8 @@ class Operator(AbstractStateMachine):
                 pass
 
     def prepareForAnswer(self):
-        self._db.fetchCallerInfo()
+        self._accounts, self._personal_greeting_f = self._db.fetchCallerInfo(self._caller_number)
+        self._accounts_iter = iter(self._accounts)
 
     def beginCallProcessing(self):
         # заупск машины состояний оператора на обработку алгоритма приема показаний

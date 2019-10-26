@@ -21,18 +21,17 @@ class SerialReaderThread(ReaderThread):
 class SerialLineReader(LineReader):
     TERMINATOR = b'\r'
     def connection_made(self, transport):
-        #print("connection made")
-        log.debug("connection_made")
+        log.debug("connection made")
         transport.serial.rts = False
         self._transport = transport
         self._lines = FilteredQueue()
         super(SerialLineReader, self).connection_made(transport)
         
     def connection_lost(self, exc):
-        log.debug("connection_lost({})".format(exc))
+        log.debug("connection lost. code={}".format(exc))
         
     def handle_line(self, line):
-        log.debug("handle_line({})".format(line))
+        log.debug("handle line '{}'".format(line))
         self._lines.put(line)
 
     # methods below called from another thread

@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-import mysql.connector as sql
-from mysql.connector.errors import Error as SQLError
 import loggingwrapper as log
 from time import clock
 
@@ -29,66 +27,55 @@ class DBConnector:
         self._db_user = config["db_user"]
         self._db_password = config["db_pass"]
     
-    def _db_connect(self):
-        conn = None
-        
-        if not sql.paramstyle == 'pyformat':
-            log.error('sql paramstyle = "{}" not supported.'.format(sql.paramstyle))
-            return conn
+        self._data = [
+            {"client_id" : "1",
+            "account" : "123456",
+            "phone_number" : "+79115792506",
+            "registration_date" : clock(),
+            "meter_id" : 1,
+            "index_num" : 1,
+            "updated" : clock(),
+            "count" : 100,
+            "greeting_f" : ""},
             
-        tryes = 3
-        while tryes > 0:
-            try:
-                conn = sql.connect(
-                    host = self._db_host,
-                    port = self._db_port, 
-                    database = self._db_database,
-                    user = self._db_user,
-                    password = self._db_password)
-                    
-                tryes = 0
-                
-            except SQLError as e:
-                tryes -= 1
-                log.exception("can't connect to database server")
-                
-        return conn
-
+            {"client_id" : "1",
+            "account" : "123456",
+            "phone_number" : "+79115792506",
+            "registration_date" : clock(),
+            "meter_id" : 2,
+            "index_num" : 2,
+            "updated" : clock(),
+            "count" : 200,
+            "greeting_f" : ""},
+            
+            {"client_id" : "2",
+            "account" : "654321",
+            "phone_number" : "+79115792507",
+            "registration_date" : clock(),
+            "meter_id" : "",
+            "index_num" : 1,
+            "updated" : clock(),
+            "count" : 300,
+            "greeting_f" : ""}
+        ]
+    
+    def _db_connect(self):
+        pass
+        
     def isError(self):
         return self._db_error
         
     def fetchCallerInfo(self, caller_number):
         start_time = clock()
         
-        conn = self._db_connect()
-        
         accounts = {}
         pers_gr = ""
-
         
-        if not conn:
-            self._db_error = True
-            return (accounts, pers_gr)
-        
-        cursor = conn.cursor(dictionary = True)
-        request_text = """SELECT 
-            `clients`.`id` AS `client_id`,
-            `clients`.`account`,
-            `clients`.`phone_number`,
-            `clients`.`registration_date`,
-            `meters`.`id` AS `meter_id`,
-            `meters`.`index_num`,
-            `meters`.`updated`,
-            `meters`.`count`,
-            `pers_set`.`greeting_f`
-            FROM `clients` 
-            INNER JOIN `meters` ON `meters`.`owner_id` = `clients`.`id` AND `clients`.`phone_number`=%(phone)s
-            LEFT JOIN `pers_set` ON `pers_set`.`phone_number`=%(phone)s"""
-            
         try:
-            cursor.execute(request_text, {'phone' : caller_number})
             
-            for item in cursor.fetchall():
+            for item in self._data:
+                if not item["phone_number"] == caller_number:
+                    continue
                 acc = item["account"]
                 
                 if not acc in accounts:
@@ -98,15 +85,14 @@ class DBConnector:
                 # поле для новых показаний
                 mtr[DB_MTR_NEWCOUNT] = mtr[DB_MTR_COUNT]
                 accounts[acc].append(mtr)
-                pers_gr = item[DB_PERSONAL_GREATING]
+                pers_gr = accounts[DB_PERSONAL_GREATING]
                 
         except SQLError as e:
             self._db_error = True
             log.exception("can't fetch data from database")
             
         finally:
-            cursor.close()
-            conn.close()
+            pass
             
         # определение функции для извлечения ключа сортировки
         def sf(item):
@@ -118,6 +104,7 @@ class DBConnector:
             
         log.debug("completed in {:g} sec.").format(clock() - start_time)
         log.debug("collected accounts : {}".format(list(accounts.keys())))
+        
         return (accounts, pers_gr)
         
     def storeData(self, accounts):
@@ -132,13 +119,13 @@ class DBConnector:
         
         cursor = conn.cursor(dictionary = True)
         
-        # request_text = """UPDATE `meters` 
-            # SET `updated` = %(date)s, 
-            # `count` = %(count)s 
-            # WHERE `meters`.`id` = %(meter_id)s"""
+        # request_text = """UPDATE "meters" 
+            # SET "updated" = %(date)s, 
+            # "count" = %(count)s 
+            # WHERE "meters"."id" = %(meter_id)s"""
 
-        request_text = """INSERT INTO `meters_readings` 
-        (`id`, `meter_id`, `count`, `updated`)
+        request_text = """INSERT INTO "meters_readings" 
+        ("id", "meter_id", "count", "updated")
         VALUES (NULL, '%(meter_id)s', '%(count)s', %(date)s)"""
         
         try:
@@ -165,4 +152,3 @@ class DBConnector:
         
         log.debug("completed in {:g} sec.").format(clock() - start_time)
 
-            
