@@ -146,7 +146,7 @@ class OperatorDispatcher(AbstractStateMachine):
             # создаем оператора
             self._operator = aoperator.Operator(self._config, number)
             # получем информацию о звонящем из бд
-            self._operator.fetchCallerInfo()
+            self._operator.prepareForAnswer()
             # переходим на этам ответа на звонок
             self._set_state(State.ANSWER)
             self._protocol.cmdAnswerCall()

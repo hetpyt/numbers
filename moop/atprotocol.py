@@ -198,7 +198,11 @@ class ATProtocol:
         lc = self._get_last_cmd()
         if lc:
             # была отправлена команда - ожидаемо что это результат ее выполнения
-            if head in COMMANDS[lc]["RESULT"].values():
+            if COMMANDS[lc]["CMD"] == msg:
+                # включен режим эхо. устройство отправляет полученную команду обратно перед отправкой ответа
+                pass
+                
+            elif head in COMMANDS[lc]["RESULT"].values():
                 # результат выполнения команды
                 is_ok = (head == COMMANDS[lc]["RESULT"]["SUCCESS"])
                 # вызываем событие при этом забываем последнюю команду

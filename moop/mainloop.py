@@ -26,11 +26,20 @@ if __name__ == '__main__':
     if not __config.is_readed():
         __log.critical("no config file was found")
         exit(1)
-    
+    # проверка параметров подключения к устройству
     if not __config.is_params_exists(("com_port", "com_baudrate")):
-        __log.critical("serial communication parameters not defined in config file '{}'".format(__config.get_file_name()))
+        __log.critical("serial communication parameters not completely defined in config file '{}'".format(__config.get_file_name()))
         exit(1)
-        
+    # проверка параметров подключения к субд
+    if not __config.is_params_exists(("db_type", "db_server", "db_port", "db_name", "db_user", "db_pass")):
+        __log.critical("database connection parameters not completely defined in config file '{}'".format(__config.get_file_name()))
+        exit(1)
+    # проверка параметров воспроизведения звука
+    if not __config.is_params_exists(("sp_resource_path", "sp_error_message", "sp_greeting_message", "sp_noacc_message",
+            "sp_acc_selection1", "sp_acc_selection2", "sp_mtr_question1", "sp_mtr_question2", "sp_mtr_question2", "sp_mtr_newvalue",
+            "sp_mtr_confirmation1", "sp_mtr_confirmation2", "sp_mtr_confirmation3", "sp_farewell_message")):
+        __log.critical("sound play parameters not completely defined in config file '{}'".format(__config.get_file_name()))
+        exit(1)
     # globals
     # протокол обмена сообщениями с устройством связи
     __protocol = ATProtocol(__config["com_port"], __config["com_baudrate"])
