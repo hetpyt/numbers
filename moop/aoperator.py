@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 from enum import Enum
-from datetime import datetime
 #import mysql.connector as sql
 #from mysql.connector.errors import Error as SQLError
-from globals import __NO_SOUND__
+from globals import __NO_SOUND__, __NO_SQL__
 from statemachine import AbstractStateMachine
-import mysqlwrapper as db
+if __NO_SQL__:
+    import dbwrapperstub as db
+else:
+    import mysqlwrapper as db
 import loggingwrapper as log
 
 if __NO_SOUND__:
@@ -343,7 +345,7 @@ class Operator(AbstractStateMachine):
             # подтверждение ввода показаний
             if symbol == SYM_CONFIRM:
                 # ввод подтвержден - сохраняем в бд
-                self._db.storeData()
+                self._db.storeData(self._accounts)
                 if self._db.isError():
                     # ошибка записи в бд
                     self._speak_error()

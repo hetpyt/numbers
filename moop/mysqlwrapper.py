@@ -4,7 +4,7 @@ import mysql.connector as sql
 from mysql.connector.errors import Error as SQLError
 import loggingwrapper as log
 from time import clock
-
+from datetime import datetime
 # имена ключевых полей бд
 DB_MTR_INDEX = "index_num"
 DB_MTR_COUNT = "count"
@@ -96,7 +96,7 @@ class DBConnector:
                     
                 mtr = item.copy()
                 # поле для новых показаний
-                mtr[DB_MTR_NEWCOUNT] = mtr[DB_MTR_COUNT]
+                mtr[DB_MTR_COUNT_NEW] = mtr[DB_MTR_COUNT]
                 accounts[acc].append(mtr)
                 pers_gr = item[DB_PERSONAL_GREATING]
                 
@@ -116,7 +116,7 @@ class DBConnector:
         for acc in accounts:
             accounts[acc].sort(key = sf)
             
-        log.debug("completed in {:g} sec.").format(clock() - start_time)
+        log.debug("completed in {:g} sec.".format(clock() - start_time))
         log.debug("collected accounts : {}".format(list(accounts.keys())))
         return (accounts, pers_gr)
         
@@ -148,7 +148,7 @@ class DBConnector:
                 for meter in accounts[acc]:
                     # цикл по счетчикам
                     #if meter["__data_confirmed__"]:
-                    cursor.execute(request_text, {'meter_id' : meter["meter_id"], 'count' : meter["count"], 'date' : now_d})
+                    cursor.execute(request_text, {'meter_id' : meter["meter_id"], 'count' : meter[DB_MTR_COUNT_NEW], 'date' : now_d})
                     log.debug("update row in 'meters' with id '{}'".format(meter["meter_id"]))
                     need_commit = True
                         
@@ -163,6 +163,6 @@ class DBConnector:
             cursor.close()
             conn.close()
         
-        log.debug("completed in {:g} sec.").format(clock() - start_time)
+        log.debug("completed in {:g} sec.".format(clock() - start_time))
 
             

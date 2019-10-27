@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 import loggingwrapper as log
 from time import clock
-
+from datetime import datetime
 # имена ключевых полей бд
 DB_MTR_INDEX = "index_num"
 DB_MTR_COUNT = "count"
@@ -83,11 +83,11 @@ class DBConnector:
                     
                 mtr = item.copy()
                 # поле для новых показаний
-                mtr[DB_MTR_NEWCOUNT] = mtr[DB_MTR_COUNT]
+                mtr[DB_MTR_COUNT_NEW] = mtr[DB_MTR_COUNT]
                 accounts[acc].append(mtr)
-                pers_gr = accounts[DB_PERSONAL_GREATING]
+                pers_gr = mtr[DB_PERSONAL_GREATING]
                 
-        except SQLError as e:
+        except Exception as e:
             self._db_error = True
             log.exception("can't fetch data from database")
             
@@ -102,7 +102,7 @@ class DBConnector:
         for acc in accounts:
             accounts[acc].sort(key = sf)
             
-        log.debug("completed in {:g} sec.").format(clock() - start_time)
+        log.debug("completed in {:g} sec.".format(clock() - start_time))
         log.debug("collected accounts : {}".format(list(accounts.keys())))
         
         return (accounts, pers_gr)
@@ -110,45 +110,25 @@ class DBConnector:
     def storeData(self, accounts):
         start_time = clock()
         
-        conn = self._db_connect()
-        need_commit = False
-        
-        if not conn:
-            self._db_error = True
-            return
-        
-        cursor = conn.cursor(dictionary = True)
-        
-        # request_text = """UPDATE "meters" 
-            # SET "updated" = %(date)s, 
-            # "count" = %(count)s 
-            # WHERE "meters"."id" = %(meter_id)s"""
-
-        request_text = """INSERT INTO "meters_readings" 
-        ("id", "meter_id", "count", "updated")
-        VALUES (NULL, '%(meter_id)s', '%(count)s', %(date)s)"""
-        
         try:
             now_d = datetime.now()
             for acc in accounts:
                 # цикл по ЛС
                 for meter in accounts[acc]:
                     # цикл по счетчикам
-                    #if meter["__data_confirmed__"]:
-                    cursor.execute(request_text, {'meter_id' : meter["meter_id"], 'count' : meter["count"], 'date' : now_d})
-                    log.debug("update row in 'meters' with id '{}'".format(meter["meter_id"]))
+                    data_s = "stored data: meter_id={}, count={}, updated={}".format(meter["meter_id"], meter[DB_MTR_COUNT_NEW], now_d)
+                    log.debug(data_s)
                     need_commit = True
                         
             if need_commit:
-                conn.commit()
+                pass
                 
-        except SQLError as e:
+        except Exception as e:
             self._db_error = True
             log.exception("can't update data into database")
             
         finally:
-            cursor.close()
-            conn.close()
+            pass
         
-        log.debug("completed in {:g} sec.").format(clock() - start_time)
+        log.debug("completed in {:g} sec.".format(clock() - start_time))
 
