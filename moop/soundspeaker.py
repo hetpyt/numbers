@@ -86,7 +86,10 @@ class SoundSpeaker(NumberSpeaker):
         data = bytes()
         get_params = True
         for word in sequence:
-            res_name = os.path.join(self._res_path, word + '.wav')
+            fn = word.strip()
+            if not fn:
+                continue
+            res_name = os.path.join(self._res_path, fn + '.wav')
             try:
                 with wave.open(res_name, 'rb') as wr:
                     if get_params:

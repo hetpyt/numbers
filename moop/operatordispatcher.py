@@ -15,6 +15,7 @@ class State(Enum):
     ANSWER = 4
     ANSWERED = 5
     ENDINGCALL = 6
+    DEVICE_ERROR = 11
 
 # задержка между тестами ствязи (AT)
 TICKS_BETWEEN_TEST = int(60 / __MAIN_LOOP_DELAY__) # 60 сек. выполняется тольк в состоянии IDLE
@@ -45,7 +46,14 @@ class OperatorDispatcher(AbstractStateMachine):
         self._ticks_from_last_test = 0
         self._set_state(State.TEST)
         self._protocol.cmdTest()
-        
+    
+    def _err_operator_call(self):
+        self._set_def_state()
+        # сообщаем оператору что вызов завершен с ошибкой
+        if self._operator:
+            self._operator.onCallEnded(True)
+
+    
     def initProtocol(self, protocol):
         # установка событий
         protocol.setAction(atprotocol.ON_TICK, self.on_tick)
@@ -55,6 +63,7 @@ class OperatorDispatcher(AbstractStateMachine):
         protocol.setAction(atprotocol.ON_END_CALL, self.on_end_call)
         protocol.setAction(atprotocol.ON_CALLER_NUMBER_RECIEVED, self.on_caller_number_recieved)
         protocol.setAction(atprotocol.ON_DTMF_RECIEVED, self.on_DTMF_recieved)
+        protocol.setAction(atprotocol.ON_PROTOCOL_ERROR, self.on_protocol_error)
         protocol.setAction(atprotocol.ON_CMD_TIMEOUT, self.on_cmd_timeout)
         protocol.setAction(atprotocol.ON_UNKNOWN_MSG, self.on_unknown_msg)
         
@@ -62,12 +71,13 @@ class OperatorDispatcher(AbstractStateMachine):
         
     # вызывается из главного цикла каждую итерацию для мониторинга таймаутов
     def on_tick(self):
-        if self._state == State.IDLE:
+        st = self._get_state()
+        if st in (State.IDLE, State.DEVICE_ERROR):
             # плюсуем счетчик тестов тольк ов IDLE
             self._ticks_from_last_test += 1
             if self._ticks_from_last_test >= TICKS_BETWEEN_TEST:
                 self._test()
-                
+        
         if self._operator:
             # если есть оператор то дергаем его
             self._operator.tick()
@@ -120,13 +130,17 @@ class OperatorDispatcher(AbstractStateMachine):
     # вызывается протоколом при превышении времени ожидания ответа команды
     def on_cmd_timeout(self, cmd):
         # вероятно потеряна связь с устройством либо устройство зависло
-        log.error("command '{}' timed out".format(cmd))
-        # сбрасываем состояние в дефолтное
-        self._set_def_state()
-        # сообщаем оператору что вызов завершен с ошибкой
-        if self._operator:
-            self._operator.onCallEnded(True)
-            
+        log.error("command '{}' timed out. drop to def state".format(cmd))
+        # сбрасываем состояние в ошибку
+        self._err_operator_call()
+
+    # вызывается при ошибке протокола
+    def on_protocol_error(self):
+        # вероятно потеряна связь с устройством либо устройство зависло
+        log.error("protocol has some error. drop to def state")
+        # сбрасываем состояние в ошибку
+        self._err_operator_call()
+        
     def on_incoming_call(self):
         log.debug("incoming call")
         if self._get_state() == State.IDLE:
@@ -163,7 +177,8 @@ class OperatorDispatcher(AbstractStateMachine):
     def on_DTMF_recieved(self, symbol):
         log.debug("DTMF sybol recieved {}".format(symbol))
         # получен символ - пересылаем текущему оператору
-        self._operator.processSymbol(symbol)
+        if self._operator:
+            self._operator.processSymbol(symbol)
         
     def on_unknown_msg(self, message):
         log.error("unknown message recieved {}".format(message))

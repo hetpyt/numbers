@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 from globals import __MAIN_LOOP_DELAY__
 import loggingwrapper as log
-from aterror import ATConnectionLostError
 from serialreader import SerialReaderThread, SerialLineReader
 # служебные символы
 SYMBOL_CR = "\r" #13 \r
@@ -14,45 +13,44 @@ SYMBOL_ARG_QUOTE = '"'
 # стандартные результаты выполнения комманд
 R_OK = "OK"
 R_ERR = "ERROR"
-
+R_NOCR = "NO CARRIER"
 CMD_TIMEOUT = int(120 / __MAIN_LOOP_DELAY__) # 30 sec
-
 
 # команды управления 
 COMMANDS = {
     "TEST" : {
         "CMD" : "AT",
         "RESULT" : {
-            "SUCCESS" : "OK",
+            "SUCCESS" : R_OK,
             "FAIL" : None
             }
         },
     "ANSWER_CALL" : {
         "CMD" : "ATA",
         "RESULT" : {
-            "SUCCESS" : "OK",
-            "FAIL" : "NO CARRIER"
+            "SUCCESS" : R_OK,
+            "FAIL" : R_NOCR
             }
         },
     "END_CALL" : {
         "CMD" : "ATH",
         "RESULT" : {
-            "SUCCESS" : "OK",
+            "SUCCESS" : R_OK,
             "FAIL" : None
             }
         },
     "DTMF_ENABLE" : {
         "CMD" : "AT+DDET=1",
         "RESULT" : {
-            "SUCCESS" : "OK",
-            "FAIL" : "ERROR"
+            "SUCCESS" : R_OK,
+            "FAIL" : R_ERR
             }
         },    
     "DTMF_DISABLE" : {
         "CMD" : "AT+DDET=0",
         "RESULT" : {
-            "SUCCESS" : "OK",
-            "FAIL" : "ERROR"
+            "SUCCESS" : R_OK,
+            "FAIL" : R_ERR
             }
         },
     "DTMF_IS_ENABLED" : {
@@ -62,8 +60,8 @@ COMMANDS = {
             "PARAMS" : ("MODE", "INTERVAL", "REPORTMODE", "SSDET")
             },
         "RESULT" : {
-            "SUCCESS" : "OK",
-            "FAIL" : "ERROR"
+            "SUCCESS" : R_OK,
+            "FAIL" : R_ERR
             },
         "TEST" : {
             "PARAM" : "MODE",
@@ -74,10 +72,12 @@ COMMANDS = {
 # незатребованные результаты выполнения комманд (приходят по событию извне)
 MSG_INCOMING_CALL = "RING"
 MSG_CALLER_INFO = "+CLIP"
-MSG_END_CALL = "NO CARRIER"
+MSG_END_CALL = R_NOCR
 MSG_DTMF_RECIEVED = "+DTMF"
+
 # конец строки
-END_LINE = "\r"
+END_LINE = SYMBOL_CR
+
 # события
 # возникает каждые __MAIN_LOOP_DELAY__ секунд
 ON_TICK = 0
@@ -94,7 +94,7 @@ ON_CALLER_NUMBER_RECIEVED = 5
 # возникает при получении сообщения содержащего код DTMF (+DTMF)
 ON_DTMF_RECIEVED = 6
 # возникает при ошибке отправки/получения данных с устройства
-ON_PROTOCOL_ERROR = 7
+ON_PROTOCOL_ERROR = 18
 # возникает при истечении времени ожидания результата команды (CMD_TIMEOUT)
 ON_CMD_TIMEOUT = 19
 # возникает при получении неизвестного незатребованного сообщения от устройства
@@ -124,8 +124,11 @@ class ATProtocol:
             self._ser_thread = SerialReaderThread(self._com_port, self._com_baudrate, SerialLineReader)
             self._ser_thread.start()
             _, self._ser_reader = self._ser_thread.connect()
+            
         except Exception as e:
-            raise ATConnectionLostError("can't connect to serial device")
+            log.exception("can't connect to serial device")
+            self._callBack(ON_PROTOCOL_ERROR)
+            #raise ATConnectionLostError("can't connect to serial device")
             
     def tick(self):
         if self._last_cmd:
@@ -236,10 +239,16 @@ class ATProtocol:
                 try:
                     self._set_last_test_result(args[COMMANDS[lc]["RESPONSE"]["PARAMS"].index(COMMANDS[lc]["TEST"]["PARAM"])] == COMMANDS[lc]["TEST"]["VALUE"])
                 except IndexError as e:
-                    raise Exception("unexpected params count returned by command {}".format(lc))
+                    #raise Exception("unexpected params count returned by command {}".format(lc))
+                    log.Exception("unexpected params count returned by command {}".format(lc))
+                    self._callBack(ON_PROTOCOL_ERROR)
+
             else:
                 # вернулась какая то дичь
-                raise Exception("unexpected result of command {}".format(lc))
+                #raise Exception("unexpected result of command {}".format(lc))
+                log.Exception("unexpected result {} of command {}".format(msg, lc))
+                self._callBack(ON_PROTOCOL_ERROR)
+                
         else:
             # не было команды устройству - незатребованный результат
             if head == MSG_END_CALL:
