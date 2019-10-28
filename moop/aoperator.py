@@ -266,7 +266,9 @@ class Operator(AbstractStateMachine):
         return (self._get_state() == State.READY_FOR_HANGOFF and not self._is_speaking())
 
     # вызывается диспетчером когда вызов завершается с той строны
-    def onCallEnded(self):
+    def onCallEnded(self, error_state = False):
+        if error_state:
+            self._speak_error()
         self._set_state(State.READY_FOR_HANGOFF)
         
     # вызывается диспетчером каждый цикл

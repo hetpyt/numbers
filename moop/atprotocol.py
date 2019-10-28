@@ -93,12 +93,14 @@ ON_END_CALL = 4
 ON_CALLER_NUMBER_RECIEVED = 5
 # возникает при получении сообщения содержащего код DTMF (+DTMF)
 ON_DTMF_RECIEVED = 6
+# возникает при ошибке отправки/получения данных с устройства
+ON_PROTOCOL_ERROR = 7
 # возникает при истечении времени ожидания результата команды (CMD_TIMEOUT)
 ON_CMD_TIMEOUT = 19
 # возникает при получении неизвестного незатребованного сообщения от устройства
 ON_UNKNOWN_MSG = 20
 # кортеж событий (содержит все события, которым можно назначить обработчик)
-ACTIONS = (ON_TICK, ON_CMD_SENT, ON_CMD_RESULT, ON_INCOMING_CALL, ON_END_CALL, ON_CALLER_NUMBER_RECIEVED, ON_DTMF_RECIEVED, ON_CMD_TIMEOUT, ON_UNKNOWN_MSG)
+ACTIONS = (ON_TICK, ON_CMD_SENT, ON_CMD_RESULT, ON_INCOMING_CALL, ON_END_CALL, ON_CALLER_NUMBER_RECIEVED, ON_DTMF_RECIEVED, ON_PROTOCOL_ERROR, ON_CMD_TIMEOUT, ON_UNKNOWN_MSG)
 
 class ATProtocol:
     
@@ -191,7 +193,28 @@ class ATProtocol:
         if args:
             ret_args = tuple(self._parse_args(args))
         return head.upper(), ret_args
-    
+        
+    def _sendCmd(self, cmd):
+        try:
+            # # проверки
+            # if not cmd:
+                # raise Exception("empty command")
+            # if not cmd in COMMANDS:
+                # raise Exception("not supported command '{}'".format(cmd))
+            # формирование команды устройству
+            cmd_line = COMMANDS[cmd]["CMD"] + END_LINE
+            # сброс таймаута и служебных полей
+            self._set_cmd_timeout(CMD_TIMEOUT)
+            self._set_last_cmd(cmd)
+            # отправка команды
+            self._ser_thread.write(cmd_line.encode())
+            # вызов события
+            self._callBack(ON_CMD_SENT, cmd = cmd)
+            
+        except Exception as e:
+            log.Exception("can't send command '{}' to device".format(cmd))
+            self._callBack(ON_PROTOCOL_ERROR)
+            
     def processMessage(self, msg):
         head, args = self._parse_msg(msg)
         # получаем имя последней отправленной команды
@@ -234,54 +257,34 @@ class ATProtocol:
             else:
                 self._callBack(ON_UNKNOWN_MSG, message = msg)
 
-    def sendCmd(self, cmd):
-        try:
-            if not cmd:
-                raise Exception("empty command")
-            if not cmd in COMMANDS:
-                raise Exception("not supported command")
-            cmd_line = COMMANDS[cmd]["CMD"] + END_LINE
-            self._set_cmd_timeout(CMD_TIMEOUT)
-            self._ser_thread.write(cmd_line.encode())
-            self._callBack(ON_CMD_SENT, cmd = cmd)
-        except Exception as e:
-            raise Exception("can't send command '{}' to device".format(cmd)) from e
-            
     def resendCmd(self):
         lc = self._get_last_cmd()
         if lc:
-            sendCmd(lc)
+            _sendCmd(lc)
             
-        
     def cmdTest(self):
         cmd = "TEST"
-        self.sendCmd(cmd)
-        self._set_last_cmd(cmd)
+        self._sendCmd(cmd)
     
     def cmdAnswerCall(self):
         cmd = "ANSWER_CALL"
-        self.sendCmd(cmd)
-        self._set_last_cmd(cmd)
+        self._sendCmd(cmd)
     
     def cmdEndCall(self):
         cmd = "END_CALL"
-        self.sendCmd(cmd)
-        self._set_last_cmd(cmd)
+        self._sendCmd(cmd)
     
     def cmdEnableDTMF(self):
         cmd = "DTMF_ENABLE"
-        self.sendCmd(cmd)
-        self._set_last_cmd(cmd)
+        self._sendCmd(cmd)
 
     def cmdDisableDTMF(self):
         cmd = "DTMF_DISABLE"
-        self.sendCmd(cmd)
-        self._set_last_cmd(cmd)
+        self._sendCmd(cmd)
         
     def cmdIsDTMFenabled(self):
         cmd = "DTMF_IS_ENABLED"
-        self.sendCmd(cmd)
-        self._set_last_cmd(cmd)
+        self._sendCmd(cmd)
         
     def setAction(self, action, ref):
         if action in self._actions:

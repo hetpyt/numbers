@@ -40,7 +40,12 @@ class OperatorDispatcher(AbstractStateMachine):
     def _end_call(self):
         self._set_state(State.ENDINGCALL)
         self._protocol.cmdEndCall()
-     
+        
+    def _test(self):
+        self._ticks_from_last_test = 0
+        self._set_state(State.TEST)
+        self._protocol.cmdTest()
+        
     def initProtocol(self, protocol):
         # установка событий
         protocol.setAction(atprotocol.ON_TICK, self.on_tick)
@@ -54,22 +59,19 @@ class OperatorDispatcher(AbstractStateMachine):
         protocol.setAction(atprotocol.ON_UNKNOWN_MSG, self.on_unknown_msg)
         
         self._protocol = protocol
-    
-    def on_tick(self):
-        #print(self._ticks_from_last_test)
-        self._ticks_from_last_test += 1
         
-        # вызывается из главного цикла каждую итерацию для мониторинга таймаутов
+    # вызывается из главного цикла каждую итерацию для мониторинга таймаутов
+    def on_tick(self):
         if self._state == State.IDLE:
+            # плюсуем счетчик тестов тольк ов IDLE
+            self._ticks_from_last_test += 1
             if self._ticks_from_last_test >= TICKS_BETWEEN_TEST:
-                self._ticks_from_last_test = 0
-                self._set_state(State.TEST)
-                self._protocol.cmdTest()
+                self._test()
                 
         if self._operator:
             # если есть оператор то дергаем его
             self._operator.tick()
-            if self._operator.isReadyForHangoff() and self._get_state() == State.ANSWERED:
+            if self._operator.isReadyForHangoff() and not self._get_state() == State.ENDINGCALL:
                 # оператор готов завершить звонок
                 self._end_call()
     
@@ -89,7 +91,7 @@ class OperatorDispatcher(AbstractStateMachine):
                 # raise ATConnectionLostError("no connection")
                 log.error("TEST command return not OK")
             # возврат в состояние ожидания
-            self._set_state(State.IDLE)
+            self._set_def_state()
 
         # если состояние ответа на входящий вызов        
         elif st == State.ANSWER:
@@ -99,10 +101,6 @@ class OperatorDispatcher(AbstractStateMachine):
                 # начало обработки звонка оператором
                 self._operator.beginCallProcessing()
                 # проверяем готовность в on_tick
-                # # проверяем готовность к завершению вызова
-                # if self._operator.isReadyForHangoff():
-                    # # завершаем вызов
-                    # self._end_call()
             else:
                 # ждем нового гудка для повтора ответа
                 self._operator = None
@@ -117,11 +115,18 @@ class OperatorDispatcher(AbstractStateMachine):
                 
             else:
                 # ошибка команды завершения вызова - повтор команды
-                self._protocol.cmdEndCall()
-    
+                self._end_call()
+                
+    # вызывается протоколом при превышении времени ожидания ответа команды
     def on_cmd_timeout(self, cmd):
+        # вероятно потеряна связь с устройством либо устройство зависло
         log.error("command '{}' timed out".format(cmd))
-        
+        # сбрасываем состояние в дефолтное
+        self._set_def_state()
+        # сообщаем оператору что вызов завершен с ошибкой
+        if self._operator:
+            self._operator.onCallEnded(True)
+            
     def on_incoming_call(self):
         log.debug("incoming call")
         if self._get_state() == State.IDLE:
@@ -131,12 +136,12 @@ class OperatorDispatcher(AbstractStateMachine):
     def on_end_call(self):
         if self._get_state() in (State.ANSWERED, State.ANSWER, State.RINGING):
             log.debug("call is ended on the other side")
-            # нужно известить оператора о том что вызов завершен
-            self._operator.onCallEnded()
         else:
             log.error("unexpected event on state '{}'! Dropped to IDLE.".format(self._get_state()._name_))
             self._set_def_state()
-        
+        # нужно известить оператора о том что вызов завершен
+        if self._operator:
+            self._operator.onCallEnded()
         
     def on_caller_number_recieved(self, number):
         log.debug("caller number recieved {}".format(number))
@@ -161,7 +166,7 @@ class OperatorDispatcher(AbstractStateMachine):
         self._operator.processSymbol(symbol)
         
     def on_unknown_msg(self, message):
-        log.debug("unknown message recieved {}".format(message))
+        log.error("unknown message recieved {}".format(message))
     
     
     
