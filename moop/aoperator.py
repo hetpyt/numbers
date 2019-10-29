@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+
+#TODO после ввода новых показаний и отказа от подтверждения диктует вы ввели.  
+
 from enum import Enum
 #import mysql.connector as sql
 #from mysql.connector.errors import Error as SQLError

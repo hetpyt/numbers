@@ -30,7 +30,7 @@ class DBConnector:
         self._data = [
             {"client_id" : "1",
             "account" : "123456",
-            "phone_number" : "+79115792506",
+            "phone_number" : "+79115651767",
             "registration_date" : clock(),
             "meter_id" : 1,
             "index_num" : 1,
@@ -40,7 +40,7 @@ class DBConnector:
             
             {"client_id" : "1",
             "account" : "123456",
-            "phone_number" : "+79115792506",
+            "phone_number" : "+79115651767",
             "registration_date" : clock(),
             "meter_id" : 2,
             "index_num" : 2,
@@ -50,12 +50,12 @@ class DBConnector:
             
             {"client_id" : "2",
             "account" : "654321",
-            "phone_number" : "+79115792507",
+            "phone_number" : "+79115651769",
             "registration_date" : clock(),
-            "meter_id" : "",
+            "meter_id" : 1,
             "index_num" : 1,
             "updated" : clock(),
-            "count" : 300,
+            "count" : 303,
             "greeting_f" : ""}
         ]
     

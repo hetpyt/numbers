@@ -9,6 +9,7 @@ from numberspeaker import NumberSpeaker
 class SoundSpeaker(NumberSpeaker):
     """speak the sequence"""
     def __init__(self, resource_path):
+        super(SoundSpeaker, self).__init__()
         self._play_obj = None
         self._res_path = resource_path
         self._zero = "0"
