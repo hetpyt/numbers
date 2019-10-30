@@ -6,7 +6,7 @@
 from enum import Enum
 #import mysql.connector as sql
 #from mysql.connector.errors import Error as SQLError
-from globals import __NO_SOUND__, __NO_SQL__
+from globals import __MAIN_LOOP_DELAY__, __NO_SOUND__, __NO_SQL__
 from statemachine import AbstractStateMachine
 if __NO_SQL__:
     import dbwrapperstub as db
@@ -23,11 +23,13 @@ else:
 SYM_CONFIRM = '*'
 SYM_CANCEL = '#'
 
+TICKS_INPUT_TIMEOUT = int(30 / __MAIN_LOOP_DELAY__) # 60 сек. выполняется тольк в состоянии IDLE
+
+
 class State(Enum):
     IDLE = 0
     GREETING = 1
     ACC_SELECTION = 2
-    NO_ACCOUNT = 3
     METER_SELECTION = 4
     NUMBER_INPUT = 10
     ACC_CONFIRMATION = 11
@@ -41,6 +43,10 @@ class Operator(AbstractStateMachine):
         super(Operator, self).__init__(State.IDLE)
         
         self._number_input = ''
+        
+        self._speaking = False
+        
+        self._input_timeout = None
         
         # параметры объекта
         self._caller_number = caller_number
@@ -106,6 +112,12 @@ class Operator(AbstractStateMachine):
         # сброс ввода
         self._number_input_reset()
     
+    def _set_input_timeout(self):
+        self._input_timeout = TICKS_INPUT_TIMEOUT
+    
+    def _reset_input_timeout(self):
+        self._input_timeout = None
+    
     def _reset_meter_iter(self):
         self._meter_iter = iter(self._accounts[self._current_acc])
     
@@ -143,6 +155,7 @@ class Operator(AbstractStateMachine):
             
     # приветствие. вызывается после приема входящего вызова
     def _greeting(self):
+        self._set_state(State.GREETING)
         if not self._db.isError():
             # нет ошибок бд - можно продолжать обработку звонка
             if self._personal_greeting_message:
@@ -202,7 +215,7 @@ class Operator(AbstractStateMachine):
         acc_cnt = len(self._accounts)
         if acc_cnt == 0:
             # нет ни одного лс
-            self._set_state(State.NO_ACCOUNT)
+            self._set_state(State.READY_FOR_HANGOFF)
             self._begin_speaking([self._noacc_message, self._farewell_message])
             
         # elif acc_cnt == 1:
@@ -266,7 +279,7 @@ class Operator(AbstractStateMachine):
     # вызывается диспетчером для проверки готовности оператора завершить вызов   
     def isReadyForHangoff(self):
         # возвращает истину если состояние READY_FOR_HANGOFF и не соспроизводится сообщение
-        return (self._get_state() == State.READY_FOR_HANGOFF and not self._is_speaking())
+        return (self._get_state() == State.READY_FOR_HANGOFF and not self._speaking)
 
     # вызывается диспетчером когда вызов завершается с той строны
     def onCallEnded(self, error_state = False):
@@ -276,15 +289,29 @@ class Operator(AbstractStateMachine):
         
     # вызывается диспетчером каждый цикл
     def tick(self):
-        if not self._is_speaking():
-            # ничего не говорим можно "делать вещи"
-            if self._get_state() == State.GREETING:
+        # проверяем закончили ли мы говорить
+        old_speaking = self._speaking
+        self._speaking = self._is_speaking()
+        # если старые статус был Да а новый Нет то мы закончили говорить
+        ended_speaking = (old_speaking == True and self._speaking == False)
+        if ended_speaking:
+            # закончили говорить можно "делать вещи"
+            st = self._get_state()
+            if st == State.GREETING:
                 # с этапа приветствия переходим к этапу выбора лс - если их несколько
                 self._acc_selection()
                 
-            elif self._get_state() == State.NO_ACCOUNT:
-                # проговорили сообщение об отсутсвии лс и попрощались 
+            elif st in (ACC_SELECTION, METER_SELECTION, NUMBER_INPUT, ACC_CONFIRMATION):
+                # если закончили говорить и состояния требующие реакции абонента то запускаем таймаут
+                self._set_input_timeout()
+                
+        if not self._input_timeout == None:
+            # если есть таймаут то уменьшаем его
+            self._input_timeout -= 1
+            if self._input_timeout <= 0:
+                # время вышло. пользователь не отреагировал - прощаемся и завершаем вызов
                 self._set_state(State.READY_FOR_HANGOFF)
+                self._begin_speaking([self._farewell_message])
             
     def stopSpeaking(self):
         self._speaker.stopAll()
@@ -293,6 +320,8 @@ class Operator(AbstractStateMachine):
     def processSymbol(self, symbol):
         # ввод символа абонентом всегда прерывает воспроизведение звука
         self._stop_speaking()
+        # сброс таймаута
+        self._reset_input_timeout()
         st = self._get_state()
         if st == State.ACC_SELECTION:
             # выбор аккаунта
@@ -372,6 +401,5 @@ class Operator(AbstractStateMachine):
 
     def beginCallProcessing(self):
         # заупск машины состояний оператора на обработку алгоритма приема показаний
-        self._set_state(State.GREETING)
         self._greeting()
             
