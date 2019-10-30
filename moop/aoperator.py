@@ -76,6 +76,7 @@ class Operator(AbstractStateMachine):
         self._mtr_confirmation1 = config["sp_mtr_confirmation1"]
         self._mtr_confirmation2 = config["sp_mtr_confirmation2"]
         self._mtr_confirmation3 = config["sp_mtr_confirmation3"]
+        self._mtr_stored = config["sp_mtr_stored"]
         self._farewell_message = config["sp_farewell_message"]
         
         self._db = db.DBConnector(config)
@@ -301,7 +302,12 @@ class Operator(AbstractStateMachine):
                 # с этапа приветствия переходим к этапу выбора лс - если их несколько
                 self._acc_selection()
                 
-            elif st in (ACC_SELECTION, METER_SELECTION, NUMBER_INPUT, ACC_CONFIRMATION):
+            elif st = State.DATA_CONFIRMED:
+                # проговорили абоненту о том что показания приняты - переходим к следующему лс
+                self._acc_selection()
+                
+            # установка таймаута    
+            if st in (State.ACC_SELECTION, State.METER_SELECTION, State.NUMBER_INPUT, State.ACC_CONFIRMATION):
                 # если закончили говорить и состояния требующие реакции абонента то запускаем таймаут
                 self._set_input_timeout()
                 
@@ -384,8 +390,10 @@ class Operator(AbstractStateMachine):
                     # ошибка записи в бд
                     self._speak_error()
                 else:
-                    # данные записаны успешно - возвращаемся к выбору лс
-                    self._acc_selection()
+                    # данные записаны успешно - сообщаем пользователю
+                    self._set_state(State.DATA_CONFIRMED)
+                    self._begin_speaking([self._mtr_stored])
+                    #self._acc_selection()
                     
             elif symbol == SYM_CANCEL:
                 # ввод отклонен - возвращаеся к вводу показаний по текущему лс поновой
