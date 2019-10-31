@@ -14,11 +14,17 @@ else:
     import mysqlwrapper as db
 import loggingwrapper as log
 
-if __NO_SOUND__:
+# if __NO_SOUND__:
+    # from soundspeakerstub import SoundSpeaker
+    # log.debug("NO SOUND. used stub.")
+# else:
+    # from soundspeaker import SoundSpeaker
+
+try:
+    from soundspeaker import SoundSpeaker
+except ModuleNotFoundError as e:
     from soundspeakerstub import SoundSpeaker
     log.debug("NO SOUND. used stub.")
-else:
-    from soundspeaker import SoundSpeaker
 
 SYM_CONFIRM = '*'
 SYM_CANCEL = '#'
@@ -302,7 +308,7 @@ class Operator(AbstractStateMachine):
                 # с этапа приветствия переходим к этапу выбора лс - если их несколько
                 self._acc_selection()
                 
-            elif st = State.DATA_CONFIRMED:
+            elif st == State.DATA_CONFIRMED:
                 # проговорили абоненту о том что показания приняты - переходим к следующему лс
                 self._acc_selection()
                 

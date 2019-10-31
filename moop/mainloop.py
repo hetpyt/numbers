@@ -52,14 +52,13 @@ if __name__ == '__main__':
     while True:
         # дергаем протокол
         try:
+            
             __protocol.tick()
-        except ATConnectionLostError as e:
-            __log.exception("can't create thread")
-            __log.info("retry after 10 seconds")
-            sleep(10)
+            
         except Exception as e:
+            # если оказались здесь, то все плохо и приложение крашится
             __log.exception("something goes wrong")
-        
+            exit(2)
         # задержка 
         sleep(__MAIN_LOOP_DELAY__)
     #print('end')
