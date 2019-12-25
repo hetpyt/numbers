@@ -275,6 +275,7 @@ class Operator(AbstractStateMachine):
             
         try:
             self._speaker.speak(snd)
+            self._speaking = True
         except Exception as e:
             log.exception("can't speak sound sequence '{}'.".format(snd))
             if critical:
