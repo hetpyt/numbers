@@ -220,7 +220,7 @@ class OperatorDispatcher(AbstractStateMachine):
     def on_protocol_error(self):
         st = self._get_state()
         if st in (State.CHECK, State.INIT):
-            raise Exception("protocol error in INIT state. Aborting".format(cmd))
+            raise Exception("protocol error in INIT state. Aborting")
         # вероятно потеряна связь с устройством либо устройство зависло
         log.error("protocol has some error. drop to def state")
         # сбрасываем состояние в ошибку
