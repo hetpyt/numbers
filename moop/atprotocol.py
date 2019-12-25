@@ -326,9 +326,6 @@ class ATProtocol:
                 is_ok = (head == COMMANDS[lc]["RESULT"]["SUCCESS"])
                 # вызываем событие при этом забываем последнюю команду
                 self._callBack(ON_CMD_RESULT, cmd = self._get_last_cmd(True), result = is_ok, test_result = self._get_last_test_result(True))
-                # обработка последовательностей команд
-                if self._is_cmd_seq():
-                    self._cmd_seq_next(is_ok)
                     
             elif "RESPONSE" in COMMANDS[lc] and head == COMMANDS[lc]["RESPONSE"]["HEAD"]:
                 # команда возращает ответ
@@ -341,12 +338,12 @@ class ATProtocol:
 
             else:
                 # вернулась какая то дичь
-                #raise Exception("unexpected result of command {}".format(lc))
-                log.error("unexpected result '{}' of command {}".format(msg, lc))
-                self._callBack(ON_PROTOCOL_ERROR)
                 # обработка последовательностей команд
                 if self._is_cmd_seq():
                     self._cmd_seq_end(False)
+                #raise Exception("unexpected result of command {}".format(lc))
+                log.error("unexpected result '{}' of command {}".format(msg, lc))
+                self._callBack(ON_PROTOCOL_ERROR)
         else:
             # не было команды устройству - незатребованный результат
             if head == MSG_END_CALL:
@@ -376,6 +373,12 @@ class ATProtocol:
                 if self._is_cmd_seq():
                     self._cmd_seq_end(False)
 
+        else:
+            # нет выполняемой команды
+            # обработка последовательностей команд
+            if self._is_cmd_seq():
+                self._cmd_seq_next(is_ok)
+                
         # проверяем нить ридера
         if (self._ser_thread == None) or (not self._ser_thread.is_alive()):
             # нить ридера не существует или мертва - нужно (пере)запустить
