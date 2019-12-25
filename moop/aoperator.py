@@ -178,9 +178,14 @@ class Operator(AbstractStateMachine):
             self._speak_error()
             
     # прощание - вызывается в конце вызова
-    def _farewell(self):
+    def _farewell(self, say_before = None):
         self._set_state(State.READY_FOR_HANGOFF)
-        self._begin_speaking([self._farewell_message])
+        sp = []
+        if not say_before == None:
+            sp.append(say_before)
+        sp.append(self._farewell_message)
+        log.debug("begin speaking farewell message")
+        self._begin_speaking(sp)
         
     # инициализирует начало ввода последовательности цифр абонентом
     def _begin_number_input(self):
@@ -222,8 +227,9 @@ class Operator(AbstractStateMachine):
         acc_cnt = len(self._accounts)
         if acc_cnt == 0:
             # нет ни одного лс
-            self._set_state(State.READY_FOR_HANGOFF)
-            self._begin_speaking([self._noacc_message, self._farewell_message])
+            #self._set_state(State.READY_FOR_HANGOFF)
+            #self._begin_speaking([self._noacc_message, self._farewell_message])
+            self._farewell(self._noacc_message)
             
         # elif acc_cnt == 1:
             # # только один лс - пропускаем выбор лс
