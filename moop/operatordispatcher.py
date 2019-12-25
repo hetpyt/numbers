@@ -176,7 +176,7 @@ class OperatorDispatcher(AbstractStateMachine):
                 log.debug("CHECK: OK")
                 # следующая стадия инициализации
                 self._init_seq_begin()
-                self._init_seq_next()
+                #self._init_seq_next()
                 
             else:
                 # ошибка проверки связи
