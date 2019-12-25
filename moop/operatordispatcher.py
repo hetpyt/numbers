@@ -255,9 +255,9 @@ class OperatorDispatcher(AbstractStateMachine):
             self._set_state(State.ANSWER)
             self._protocol.cmdAnswerCall()
             
-        else:
-            log.error("unexpected event on state '{}'! Dropped to IDLE.".format(self._get_state()._name_))
-            self._set_def_state()
+        #else:
+        #    log.error("unexpected event on state '{}'! Dropped to IDLE.".format(self._get_state()._name_))
+        #    self._set_def_state()
             
     def on_DTMF_recieved(self, symbol):
         log.debug("DTMF sybol recieved {}".format(symbol))
