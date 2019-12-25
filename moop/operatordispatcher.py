@@ -198,7 +198,7 @@ class OperatorDispatcher(AbstractStateMachine):
         if st == State.INIT:
             if result:
                 # успешно
-                log.debug("INIT sequense: OK".format(cmd))
+                log.debug("INIT sequense: OK")
                 self._set_def_state()
             else:
                 # ошибка выполнения команды инициализации
