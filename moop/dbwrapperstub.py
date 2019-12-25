@@ -30,7 +30,7 @@ class DBConnector:
         self._data = [
             {"client_id" : "1",
             "account" : "123456",
-            "phone_number" : "+79115792506",
+            "phone_number" : "+79115792507",
             "registration_date" : clock(),
             "meter_id" : 1,
             "index_num" : 1,
