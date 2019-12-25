@@ -215,7 +215,10 @@ class ATProtocol:
             self._conn_attemts_timeout = СONN_ATTEMTS_TIMEOUT
             self._callBack(ON_PROTOCOL_ERROR)
             #raise ATConnectionLostError("can't connect to serial device")
-            
+    
+    def _is_cmd_seq(self):
+        return (not self._cmd_seq_iter == None)
+    
     def _cmd_seq_begin(self, cmd_seq):
         self._cmd_seq_iter = iter(cmd_seq)
         self._cmd_seq_result = True
@@ -229,12 +232,10 @@ class ATProtocol:
         self._cmd_seq_result = None
         self._callBack(ON_CMD_SEQ_DONE, result = sr)
     
-    def _cmd_seq_next(self, res = None):
+    def _cmd_seq_next(self):
         # проверяем инициализирован ли итератор
-        if not self._cmd_seq_iter:
+        if not self._is_cmd_seq():
             return
-        if isinstance(res, bool):
-            self._cmd_seq_result = self._cmd_seq_result and res
         # следующая команда    
         try:
             cmd = next(self._cmd_seq_iter)
@@ -245,9 +246,10 @@ class ATProtocol:
             # команды последовательности закончились
             self._cmd_seq_end()
             
-    def _is_cmd_seq(self):
-        return (not self._cmd_seq_iter == None)
-        
+    def _add_cmd_seq_result(self, res):
+        if self._is_cmd_seq():
+            self._cmd_seq_result = self._cmd_seq_result and res
+    
     def _clear_cmd_timeout(self):
         self._last_cmd_timeout = None
     
@@ -324,6 +326,8 @@ class ATProtocol:
             elif head in COMMANDS[lc]["RESULT"].values():
                 # результат выполнения команды
                 is_ok = (head == COMMANDS[lc]["RESULT"]["SUCCESS"])
+                # обработка последовательностей команд
+                self._add_cmd_seq_result(is_ok)
                 # вызываем событие при этом забываем последнюю команду
                 self._callBack(ON_CMD_RESULT, cmd = self._get_last_cmd(True), result = is_ok, test_result = self._get_last_test_result(True))
                     
@@ -377,7 +381,7 @@ class ATProtocol:
             # нет выполняемой команды
             # обработка последовательностей команд
             if self._is_cmd_seq():
-                self._cmd_seq_next(is_ok)
+                self._cmd_seq_next()
                 
         # проверяем нить ридера
         if (self._ser_thread == None) or (not self._ser_thread.is_alive()):
